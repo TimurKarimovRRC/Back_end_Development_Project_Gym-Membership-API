@@ -1,4 +1,14 @@
 {
+  "name": "gym-membership-api",
+  "version": "1.0.0",
+  "description": "Gym Membership API capstone project",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "test": "jest"
+  },
   "dependencies": {
     "cors": "^2.8.6",
     "dotenv": "^17.4.1",
