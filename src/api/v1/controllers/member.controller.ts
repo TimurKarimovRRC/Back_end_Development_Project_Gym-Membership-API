@@ -7,6 +7,10 @@ import {
 import { memberService } from "../services/member.service";
 import { HTTP_STATUS } from "../../../constants/httpStatus";
 
+type MemberIdParams = {
+  memberId: string;
+};
+
 const createMember = async (req: Request, res: Response): Promise<void> => {
   const validationResult = createMemberSchema.validate(req.body, {
     abortEarly: false,
@@ -46,7 +50,10 @@ const getAllMembers = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-const getMemberById = async (req: Request, res: Response): Promise<void> => {
+const getMemberById = async (
+  req: Request<MemberIdParams>,
+  res: Response,
+): Promise<void> => {
   const validationResult = memberIdSchema.validate(req.params, {
     abortEarly: false,
     stripUnknown: true,
@@ -79,7 +86,10 @@ const getMemberById = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-const updateMember = async (req: Request, res: Response): Promise<void> => {
+const updateMember = async (
+  req: Request<MemberIdParams>,
+  res: Response,
+): Promise<void> => {
   const memberIdValidationResult = memberIdSchema.validate(req.params, {
     abortEarly: false,
     stripUnknown: true,
@@ -132,7 +142,10 @@ const updateMember = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-const deleteMember = async (req: Request, res: Response): Promise<void> => {
+const deleteMember = async (
+  req: Request<MemberIdParams>,
+  res: Response,
+): Promise<void> => {
   const validationResult = memberIdSchema.validate(req.params, {
     abortEarly: false,
     stripUnknown: true,
