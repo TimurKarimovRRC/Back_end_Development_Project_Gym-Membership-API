@@ -1,22 +1,22 @@
 import admin, { type ServiceAccount } from "firebase-admin";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
-import { environmentConfiguration } from "./env";
+import { env } from "./env";
 
-let firestoreDatabaseInstance: Firestore | null = null;
+let firestoreDatabase: Firestore | null = null;
 
 const validateFirebaseEnvironmentVariables = (): void => {
   const missingEnvironmentVariables: string[] = [];
 
-  if (!environmentConfiguration.firebaseProjectId) {
+  if (!env.firebaseProjectId) {
     missingEnvironmentVariables.push("FIREBASE_PROJECT_ID");
   }
 
-  if (!environmentConfiguration.firebasePrivateKey) {
-    missingEnvironmentVariables.push("FIREBASE_PRIVATE_KEY");
+  if (!env.firebaseClientEmail) {
+    missingEnvironmentVariables.push("FIREBASE_CLIENT_EMAIL");
   }
 
-  if (!environmentConfiguration.firebaseClientEmail) {
-    missingEnvironmentVariables.push("FIREBASE_CLIENT_EMAIL");
+  if (!env.firebasePrivateKey) {
+    missingEnvironmentVariables.push("FIREBASE_PRIVATE_KEY");
   }
 
   if (missingEnvironmentVariables.length > 0) {
@@ -26,22 +26,18 @@ const validateFirebaseEnvironmentVariables = (): void => {
   }
 };
 
-const createFirebaseServiceAccount = (): ServiceAccount => {
-  validateFirebaseEnvironmentVariables();
-
-  return {
-    projectId: environmentConfiguration.firebaseProjectId,
-    privateKey: environmentConfiguration.firebasePrivateKey.replace(/\\n/g, "\n"),
-    clientEmail: environmentConfiguration.firebaseClientEmail,
-  };
-};
-
-const initializeFirebaseAdmin = (): admin.app.App => {
+const initializeFirebaseApp = (): admin.app.App => {
   if (admin.apps.length > 0) {
     return admin.app();
   }
 
-  const firebaseServiceAccount: ServiceAccount = createFirebaseServiceAccount();
+  validateFirebaseEnvironmentVariables();
+
+  const firebaseServiceAccount: ServiceAccount = {
+    projectId: env.firebaseProjectId,
+    clientEmail: env.firebaseClientEmail,
+    privateKey: env.firebasePrivateKey,
+  };
 
   return admin.initializeApp({
     credential: admin.credential.cert(firebaseServiceAccount),
@@ -49,21 +45,17 @@ const initializeFirebaseAdmin = (): admin.app.App => {
 };
 
 export const getFirestoreDatabase = (): Firestore => {
-  if (firestoreDatabaseInstance) {
-    return firestoreDatabaseInstance;
+  if (firestoreDatabase) {
+    return firestoreDatabase;
   }
 
-  const firebaseApplication: admin.app.App = initializeFirebaseAdmin();
-  firestoreDatabaseInstance = getFirestore(firebaseApplication);
+  const firebaseApp = initializeFirebaseApp();
+  firestoreDatabase = getFirestore(firebaseApp);
 
-  return firestoreDatabaseInstance;
-};
-
-export const getFirebaseAdminApplication = (): admin.app.App => {
-  return initializeFirebaseAdmin();
+  return firestoreDatabase;
 };
 
 export const getFirebaseAuth = (): admin.auth.Auth => {
-  const firebaseApplication: admin.app.App = initializeFirebaseAdmin();
-  return firebaseApplication.auth();
+  const firebaseApp = initializeFirebaseApp();
+  return firebaseApp.auth();
 };

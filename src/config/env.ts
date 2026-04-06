@@ -1,16 +1,32 @@
-const portFromEnvironment: number = Number(process.env.PORT) || 3000;
-const nodeEnvironment: string = process.env.NODE_ENV || "development";
-const clientOrigin: string = process.env.CLIENT_ORIGIN || "http://localhost:3000";
+import dotenv from "dotenv";
 
-const firebaseProjectId: string = process.env.FIREBASE_PROJECT_ID || "";
-const firebasePrivateKey: string = process.env.FIREBASE_PRIVATE_KEY || "";
-const firebaseClientEmail: string = process.env.FIREBASE_CLIENT_EMAIL || "";
+dotenv.config();
 
-export const environmentConfiguration = {
-  port: portFromEnvironment,
-  nodeEnvironment,
-  clientOrigin,
-  firebaseProjectId,
-  firebasePrivateKey,
-  firebaseClientEmail,
+const requiredEnvironmentVariableNames = [
+  "PORT",
+  "NODE_ENV",
+] as const;
+
+for (const environmentVariableName of requiredEnvironmentVariableNames) {
+  if (!process.env[environmentVariableName]) {
+    throw new Error(
+      `Missing required environment variable: ${environmentVariableName}`,
+    );
+  }
+}
+
+export const env = {
+  port: Number(process.env.PORT),
+  nodeEnvironment: process.env.NODE_ENV ?? "development",
+  corsAllowedOrigins: (process.env.CORS_ALLOWED_ORIGINS ?? "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+
+  firebaseProjectId: process.env.FIREBASE_PROJECT_ID ?? "",
+  firebaseClientEmail: process.env.FIREBASE_CLIENT_EMAIL ?? "",
+  firebasePrivateKey: (process.env.FIREBASE_PRIVATE_KEY ?? "").replace(
+    /\\n/g,
+    "\n",
+  ),
 };

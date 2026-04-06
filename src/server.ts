@@ -1,9 +1,6 @@
-import "dotenv/config";
-import { app } from "./app";
-import { environmentConfiguration } from "./config/env";
+import app from "./app";
+import { env } from "./config/env";
 
-app.listen(environmentConfiguration.port, () => {
-  console.log(
-    `Server is running on port ${environmentConfiguration.port} in ${environmentConfiguration.nodeEnvironment} mode.`,
-  );
+app.listen(env.port, () => {
+  console.log(`Server is running on port ${env.port}`);
 });
