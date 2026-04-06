@@ -1,5 +1,6 @@
-import { type Request, type Response } from "express";
+import { type NextFunction, type Request, type Response } from "express";
 import { HTTP_STATUS } from "../../../constants/httpStatus";
+import AppError from "../errors/AppError";
 import {
   createVisitSchema,
   updateVisitSchema,
@@ -11,17 +12,24 @@ type VisitIdParams = {
   visitId: string;
 };
 
-const createVisit = async (req: Request, res: Response): Promise<void> => {
+const createVisit = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
   const validationResult = createVisitSchema.validate(req.body, {
     abortEarly: false,
     stripUnknown: true,
   });
 
   if (validationResult.error) {
-    res.status(HTTP_STATUS.BAD_REQUEST).json({
-      message: "Visit validation failed",
-      errors: validationResult.error.details.map((detail) => detail.message),
-    });
+    next(
+      new AppError(
+        "Visit validation failed",
+        HTTP_STATUS.BAD_REQUEST,
+        validationResult.error.details.map((detail) => detail.message),
+      ),
+    );
     return;
   }
 
@@ -30,29 +38,28 @@ const createVisit = async (req: Request, res: Response): Promise<void> => {
 
     res.status(HTTP_STATUS.CREATED).json(createdVisit);
   } catch (error) {
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-      message: "Failed to create visit",
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
+    next(error);
   }
 };
 
-const getAllVisits = async (req: Request, res: Response): Promise<void> => {
+const getAllVisits = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
   try {
     const visits = await visitService.getAllVisits();
 
     res.status(HTTP_STATUS.OK).json(visits);
   } catch (error) {
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-      message: "Failed to get visits",
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
+    next(error);
   }
 };
 
 const getVisitById = async (
   req: Request<VisitIdParams>,
   res: Response,
+  next: NextFunction,
 ): Promise<void> => {
   const validationResult = visitIdSchema.validate(req.params, {
     abortEarly: false,
@@ -60,10 +67,13 @@ const getVisitById = async (
   });
 
   if (validationResult.error) {
-    res.status(HTTP_STATUS.BAD_REQUEST).json({
-      message: "Visit id validation failed",
-      errors: validationResult.error.details.map((detail) => detail.message),
-    });
+    next(
+      new AppError(
+        "Visit id validation failed",
+        HTTP_STATUS.BAD_REQUEST,
+        validationResult.error.details.map((detail) => detail.message),
+      ),
+    );
     return;
   }
 
@@ -71,24 +81,20 @@ const getVisitById = async (
     const visit = await visitService.getVisitById(req.params.visitId);
 
     if (!visit) {
-      res.status(HTTP_STATUS.NOT_FOUND).json({
-        message: "Visit not found",
-      });
+      next(new AppError("Visit not found", HTTP_STATUS.NOT_FOUND));
       return;
     }
 
     res.status(HTTP_STATUS.OK).json(visit);
   } catch (error) {
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-      message: "Failed to get visit",
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
+    next(error);
   }
 };
 
 const updateVisit = async (
   req: Request<VisitIdParams>,
   res: Response,
+  next: NextFunction,
 ): Promise<void> => {
   const visitIdValidationResult = visitIdSchema.validate(req.params, {
     abortEarly: false,
@@ -96,12 +102,13 @@ const updateVisit = async (
   });
 
   if (visitIdValidationResult.error) {
-    res.status(HTTP_STATUS.BAD_REQUEST).json({
-      message: "Visit id validation failed",
-      errors: visitIdValidationResult.error.details.map(
-        (detail) => detail.message,
+    next(
+      new AppError(
+        "Visit id validation failed",
+        HTTP_STATUS.BAD_REQUEST,
+        visitIdValidationResult.error.details.map((detail) => detail.message),
       ),
-    });
+    );
     return;
   }
 
@@ -111,12 +118,13 @@ const updateVisit = async (
   });
 
   if (updateValidationResult.error) {
-    res.status(HTTP_STATUS.BAD_REQUEST).json({
-      message: "Visit update validation failed",
-      errors: updateValidationResult.error.details.map(
-        (detail) => detail.message,
+    next(
+      new AppError(
+        "Visit update validation failed",
+        HTTP_STATUS.BAD_REQUEST,
+        updateValidationResult.error.details.map((detail) => detail.message),
       ),
-    });
+    );
     return;
   }
 
@@ -127,24 +135,20 @@ const updateVisit = async (
     );
 
     if (!updatedVisit) {
-      res.status(HTTP_STATUS.NOT_FOUND).json({
-        message: "Visit not found",
-      });
+      next(new AppError("Visit not found", HTTP_STATUS.NOT_FOUND));
       return;
     }
 
     res.status(HTTP_STATUS.OK).json(updatedVisit);
   } catch (error) {
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-      message: "Failed to update visit",
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
+    next(error);
   }
 };
 
 const deleteVisit = async (
   req: Request<VisitIdParams>,
   res: Response,
+  next: NextFunction,
 ): Promise<void> => {
   const validationResult = visitIdSchema.validate(req.params, {
     abortEarly: false,
@@ -152,10 +156,13 @@ const deleteVisit = async (
   });
 
   if (validationResult.error) {
-    res.status(HTTP_STATUS.BAD_REQUEST).json({
-      message: "Visit id validation failed",
-      errors: validationResult.error.details.map((detail) => detail.message),
-    });
+    next(
+      new AppError(
+        "Visit id validation failed",
+        HTTP_STATUS.BAD_REQUEST,
+        validationResult.error.details.map((detail) => detail.message),
+      ),
+    );
     return;
   }
 
@@ -163,9 +170,7 @@ const deleteVisit = async (
     const visitWasDeleted = await visitService.deleteVisit(req.params.visitId);
 
     if (!visitWasDeleted) {
-      res.status(HTTP_STATUS.NOT_FOUND).json({
-        message: "Visit not found",
-      });
+      next(new AppError("Visit not found", HTTP_STATUS.NOT_FOUND));
       return;
     }
 
@@ -173,10 +178,7 @@ const deleteVisit = async (
       message: "Visit deleted successfully",
     });
   } catch (error) {
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-      message: "Failed to delete visit",
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
+    next(error);
   }
 };
 

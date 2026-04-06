@@ -1,27 +1,35 @@
-import { type Request, type Response } from "express";
+import { type NextFunction, type Request, type Response } from "express";
+import { HTTP_STATUS } from "../../../constants/httpStatus";
 import {
   createMemberSchema,
   memberIdSchema,
   updateMemberSchema,
 } from "../models/member.model";
 import { memberService } from "../services/member.service";
-import { HTTP_STATUS } from "../../../constants/httpStatus";
+import AppError from "../errors/AppError";
 
 type MemberIdParams = {
   memberId: string;
 };
 
-const createMember = async (req: Request, res: Response): Promise<void> => {
+const createMember = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
   const validationResult = createMemberSchema.validate(req.body, {
     abortEarly: false,
     stripUnknown: true,
   });
 
   if (validationResult.error) {
-    res.status(HTTP_STATUS.BAD_REQUEST).json({
-      message: "Member validation failed",
-      errors: validationResult.error.details.map((detail) => detail.message),
-    });
+    next(
+      new AppError(
+        "Member validation failed",
+        HTTP_STATUS.BAD_REQUEST,
+        validationResult.error.details.map((detail) => detail.message),
+      ),
+    );
     return;
   }
 
@@ -30,29 +38,28 @@ const createMember = async (req: Request, res: Response): Promise<void> => {
 
     res.status(HTTP_STATUS.CREATED).json(createdMember);
   } catch (error) {
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-      message: "Failed to create member",
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
+    next(error);
   }
 };
 
-const getAllMembers = async (req: Request, res: Response): Promise<void> => {
+const getAllMembers = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
   try {
     const members = await memberService.getAllMembers();
 
     res.status(HTTP_STATUS.OK).json(members);
   } catch (error) {
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-      message: "Failed to get members",
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
+    next(error);
   }
 };
 
 const getMemberById = async (
   req: Request<MemberIdParams>,
   res: Response,
+  next: NextFunction,
 ): Promise<void> => {
   const validationResult = memberIdSchema.validate(req.params, {
     abortEarly: false,
@@ -60,10 +67,13 @@ const getMemberById = async (
   });
 
   if (validationResult.error) {
-    res.status(HTTP_STATUS.BAD_REQUEST).json({
-      message: "Member id validation failed",
-      errors: validationResult.error.details.map((detail) => detail.message),
-    });
+    next(
+      new AppError(
+        "Member id validation failed",
+        HTTP_STATUS.BAD_REQUEST,
+        validationResult.error.details.map((detail) => detail.message),
+      ),
+    );
     return;
   }
 
@@ -71,24 +81,20 @@ const getMemberById = async (
     const member = await memberService.getMemberById(req.params.memberId);
 
     if (!member) {
-      res.status(HTTP_STATUS.NOT_FOUND).json({
-        message: "Member not found",
-      });
+      next(new AppError("Member not found", HTTP_STATUS.NOT_FOUND));
       return;
     }
 
     res.status(HTTP_STATUS.OK).json(member);
   } catch (error) {
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-      message: "Failed to get member",
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
+    next(error);
   }
 };
 
 const updateMember = async (
   req: Request<MemberIdParams>,
   res: Response,
+  next: NextFunction,
 ): Promise<void> => {
   const memberIdValidationResult = memberIdSchema.validate(req.params, {
     abortEarly: false,
@@ -96,12 +102,13 @@ const updateMember = async (
   });
 
   if (memberIdValidationResult.error) {
-    res.status(HTTP_STATUS.BAD_REQUEST).json({
-      message: "Member id validation failed",
-      errors: memberIdValidationResult.error.details.map(
-        (detail) => detail.message,
+    next(
+      new AppError(
+        "Member id validation failed",
+        HTTP_STATUS.BAD_REQUEST,
+        memberIdValidationResult.error.details.map((detail) => detail.message),
       ),
-    });
+    );
     return;
   }
 
@@ -111,12 +118,15 @@ const updateMember = async (
   });
 
   if (memberUpdateValidationResult.error) {
-    res.status(HTTP_STATUS.BAD_REQUEST).json({
-      message: "Member update validation failed",
-      errors: memberUpdateValidationResult.error.details.map(
-        (detail) => detail.message,
+    next(
+      new AppError(
+        "Member update validation failed",
+        HTTP_STATUS.BAD_REQUEST,
+        memberUpdateValidationResult.error.details.map(
+          (detail) => detail.message,
+        ),
       ),
-    });
+    );
     return;
   }
 
@@ -127,24 +137,20 @@ const updateMember = async (
     );
 
     if (!updatedMember) {
-      res.status(HTTP_STATUS.NOT_FOUND).json({
-        message: "Member not found",
-      });
+      next(new AppError("Member not found", HTTP_STATUS.NOT_FOUND));
       return;
     }
 
     res.status(HTTP_STATUS.OK).json(updatedMember);
   } catch (error) {
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-      message: "Failed to update member",
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
+    next(error);
   }
 };
 
 const deleteMember = async (
   req: Request<MemberIdParams>,
   res: Response,
+  next: NextFunction,
 ): Promise<void> => {
   const validationResult = memberIdSchema.validate(req.params, {
     abortEarly: false,
@@ -152,10 +158,13 @@ const deleteMember = async (
   });
 
   if (validationResult.error) {
-    res.status(HTTP_STATUS.BAD_REQUEST).json({
-      message: "Member id validation failed",
-      errors: validationResult.error.details.map((detail) => detail.message),
-    });
+    next(
+      new AppError(
+        "Member id validation failed",
+        HTTP_STATUS.BAD_REQUEST,
+        validationResult.error.details.map((detail) => detail.message),
+      ),
+    );
     return;
   }
 
@@ -163,9 +172,7 @@ const deleteMember = async (
     const memberWasDeleted = await memberService.deleteMember(req.params.memberId);
 
     if (!memberWasDeleted) {
-      res.status(HTTP_STATUS.NOT_FOUND).json({
-        message: "Member not found",
-      });
+      next(new AppError("Member not found", HTTP_STATUS.NOT_FOUND));
       return;
     }
 
@@ -173,10 +180,7 @@ const deleteMember = async (
       message: "Member deleted successfully",
     });
   } catch (error) {
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-      message: "Failed to delete member",
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
+    next(error);
   }
 };
 

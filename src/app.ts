@@ -3,6 +3,7 @@ import cors from "cors";
 import memberRoutes from "./api/v1/routes/member.routes";
 import subscriptionRoutes from "./api/v1/routes/subscription.routes";
 import visitRoutes from "./api/v1/routes/visit.routes";
+import { errorHandler, notFoundHandler } from "./api/v1/middleware/errorHandler";
 import { getCorsOptions } from "./config/corsOptions";
 import { helmetMiddleware } from "./config/helmetOptions";
 import { HTTP_STATUS } from "./constants/httpStatus";
@@ -29,10 +30,7 @@ app.use("/api/v1/members", memberRoutes);
 app.use("/api/v1/subscriptions", subscriptionRoutes);
 app.use("/api/v1/visits", visitRoutes);
 
-app.use((req, res) => {
-  res.status(HTTP_STATUS.NOT_FOUND).json({
-    message: "Route not found",
-  });
-});
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 export default app;
