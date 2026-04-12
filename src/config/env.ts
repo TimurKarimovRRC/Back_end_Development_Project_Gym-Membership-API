@@ -29,4 +29,10 @@ export const env = {
     /\\n/g,
     "\n",
   ),
+
+  emailHost: process.env.EMAIL_HOST ?? "",
+  emailPort: Number(process.env.EMAIL_PORT ?? 0),
+  emailUser: process.env.EMAIL_USER ?? "",
+  emailPassword: process.env.EMAIL_PASSWORD ?? "",
+  emailFrom: process.env.EMAIL_FROM ?? "",
 };
