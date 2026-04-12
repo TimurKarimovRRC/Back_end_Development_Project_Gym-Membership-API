@@ -63,6 +63,8 @@ const createSubscription = async (
     console.error("Failed to send subscription reminder email:", error);
   }
 
+
+  
   return createdSubscription;
 };
 
