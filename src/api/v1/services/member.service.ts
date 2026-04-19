@@ -1,3 +1,4 @@
+import { emailService } from "./email.service";
 import { memberRepository } from "../repositories/member.repository";
 import {
   type CreateMemberInput,
@@ -8,7 +9,20 @@ import {
 const createMember = async (
   createMemberInput: CreateMemberInput,
 ): Promise<Member> => {
-  return memberRepository.createMember(createMemberInput);
+  const createdMember = await memberRepository.createMember(createMemberInput);
+
+  if (emailService.isEmailConfigurationAvailable()) {
+    try {
+      await emailService.sendWelcomeEmail(
+        createdMember.email,
+        createdMember.firstName,
+      );
+    } catch (error) {
+      console.error("Failed to send welcome email:", error);
+    }
+  }
+
+  return createdMember;
 };
 
 const getAllMembers = async (): Promise<Member[]> => {
