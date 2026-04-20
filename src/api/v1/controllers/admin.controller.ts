@@ -19,6 +19,41 @@ const getAdminDashboard = async (
   }
 };
 
+const getInactiveMembers = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const inactiveMembersResponse = await adminService.getInactiveMembers();
+
+    res.status(HTTP_STATUS.OK).json(inactiveMembersResponse);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const sendInactiveMemberReminder = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const inactiveMember = await adminService.sendInactiveMemberReminder(
+      req.params.memberId,
+    );
+
+    res.status(HTTP_STATUS.OK).json({
+      message: `Inactive reminder sent to ${inactiveMember.email}`,
+      member: inactiveMember,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const adminController = {
   getAdminDashboard,
+  getInactiveMembers,
+  sendInactiveMemberReminder,
 };

@@ -6,3 +6,19 @@ export interface AdminDashboardStats {
   inactiveMembersCount: number;
   suspendedMembersCount: number;
 }
+
+export interface InactiveMemberSummary {
+  memberId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  membershipStatus: "active" | "inactive" | "suspended";
+  lastVisitDate: string | null;
+  daysSinceLastVisit: number | null;
+}
+
+export interface InactiveMembersResponse {
+  thresholdDays: number;
+  totalInactiveMembers: number;
+  members: InactiveMemberSummary[];
+}

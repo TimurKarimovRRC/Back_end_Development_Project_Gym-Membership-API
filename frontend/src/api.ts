@@ -44,6 +44,22 @@ export interface AdminDashboardResponse {
   };
 }
 
+export interface InactiveMemberSummary {
+  memberId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  membershipStatus: "active" | "inactive" | "suspended";
+  lastVisitDate: string | null;
+  daysSinceLastVisit: number | null;
+}
+
+export interface InactiveMembersResponse {
+  thresholdDays: number;
+  totalInactiveMembers: number;
+  members: InactiveMemberSummary[];
+}
+
 const parseJsonResponse = async (response: Response) => {
   const responseText = await response.text();
 
@@ -106,6 +122,48 @@ export const getAdminDashboard = async (
   }
 
   return responseData as AdminDashboardResponse;
+};
+
+export const getInactiveMembers = async (
+  idToken: string,
+): Promise<InactiveMembersResponse> => {
+  const response = await fetch(`${apiBaseUrl}/api/v1/admin/inactive-members`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+    },
+  });
+
+  const responseData = await parseJsonResponse(response);
+
+  if (!response.ok) {
+    throw new Error(responseData.message || "Failed to load inactive members");
+  }
+
+  return responseData as InactiveMembersResponse;
+};
+
+export const sendInactiveMemberReminder = async (
+  idToken: string,
+  memberId: string,
+) => {
+  const response = await fetch(
+    `${apiBaseUrl}/api/v1/admin/inactive-members/${memberId}/reminder`,
+    {
+      method: "POST",
+      headers: getAuthorizedHeaders(idToken),
+    },
+  );
+
+  const responseData = await parseJsonResponse(response);
+
+  if (!response.ok) {
+    throw new Error(
+      responseData.message || "Failed to send inactive member reminder",
+    );
+  }
+
+  return responseData;
 };
 
 export const getMembers = async (idToken: string): Promise<Member[]> => {

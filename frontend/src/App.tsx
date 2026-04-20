@@ -3,10 +3,13 @@ import {
   createMember,
   deleteMember,
   getAdminDashboard,
+  getInactiveMembers,
   getMembers,
   loginWithFirebase,
+  sendInactiveMemberReminder,
   updateMember,
   type AdminDashboardResponse,
+  type InactiveMembersResponse,
   type Member,
   type MemberInput,
 } from "./api";
@@ -169,6 +172,8 @@ function App() {
   const [adminDashboard, setAdminDashboard] = useState<
     AdminDashboardResponse["dashboard"] | null
   >(null);
+  const [inactiveMembersData, setInactiveMembersData] =
+    useState<InactiveMembersResponse | null>(null);
   const [createMemberState, setCreateMemberState] = useState<MemberInput>(
     initialCreateMemberState,
   );
@@ -250,6 +255,7 @@ function App() {
     setLoginPassword("");
     setMembers([]);
     setAdminDashboard(null);
+    setInactiveMembersData(null);
     setSelectedMemberId("");
     setUpdateMemberState(initialUpdateMemberState);
     showToast("success", "Signed out");
@@ -275,6 +281,61 @@ function App() {
         error instanceof Error
           ? error.message
           : "Admin dashboard request failed";
+
+      setResponseOutput(JSON.stringify({ message }, null, 2));
+      showToast("error", message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleLoadInactiveMembers = async () => {
+    if (!idToken) {
+      const message = "No token available. Please log in first.";
+      setResponseOutput(message);
+      showToast("error", message);
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const inactiveMembersResponse = await getInactiveMembers(idToken);
+      setInactiveMembersData(inactiveMembersResponse);
+      setResponseOutput(JSON.stringify(inactiveMembersResponse, null, 2));
+      showToast("success", "Inactive members loaded");
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Inactive members request failed";
+
+      setResponseOutput(JSON.stringify({ message }, null, 2));
+      showToast("error", message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSendInactiveReminder = async (memberId: string) => {
+    if (!idToken) {
+      const message = "Admin login is required.";
+      setResponseOutput(JSON.stringify({ message }, null, 2));
+      showToast("error", message);
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const reminderResponse = await sendInactiveMemberReminder(idToken, memberId);
+      setResponseOutput(JSON.stringify(reminderResponse, null, 2));
+      showToast("success", "Inactive member reminder sent");
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Inactive reminder request failed";
 
       setResponseOutput(JSON.stringify({ message }, null, 2));
       showToast("error", message);
@@ -562,7 +623,7 @@ function App() {
               <h1>Gym Membership API</h1>
               <p className="heroText">
                 Firebase login, admin authorization, member creation, editing,
-                and deletion in one clean interface.
+                deletion, and inactive-member reminders in one clean interface.
               </p>
             </div>
 
@@ -663,14 +724,22 @@ function App() {
             </section>
 
             <section className="panel">
-              <h2>Admin Dashboard</h2>
-              <p className="mutedText">Test admin-only access after login.</p>
-              <button
-                onClick={handleAdminDashboardRequest}
-                disabled={isLoading || !idToken}
-              >
-                Call Admin Dashboard
-              </button>
+              <h2>Admin Actions</h2>
+              <div className="actionGroup">
+                <button
+                  onClick={handleAdminDashboardRequest}
+                  disabled={isLoading || !idToken}
+                >
+                  Load Dashboard
+                </button>
+                <button
+                  className="secondary"
+                  onClick={handleLoadInactiveMembers}
+                  disabled={isLoading || !idToken}
+                >
+                  Load Inactive Members
+                </button>
+              </div>
             </section>
 
             <section className="panel">
@@ -756,7 +825,93 @@ function App() {
                     <strong>Dashboard not loaded yet.</strong>
                   </p>
                   <p className="mutedText">
-                    Sign in as admin and click <code>Call Admin Dashboard</code>.
+                    Sign in as admin and click <code>Load Dashboard</code>.
+                  </p>
+                </div>
+              )}
+            </section>
+
+            <section className="panel">
+              <div className="sectionHeader">
+                <div>
+                  <h2>
+                    Inactive Members{" "}
+                    <span className="countBadge">
+                      {inactiveMembersData?.totalInactiveMembers ?? 0}
+                    </span>
+                  </h2>
+                  <p className="mutedText">
+                    Members with no visits in the last{" "}
+                    <code>{inactiveMembersData?.thresholdDays ?? 14}</code> days.
+                  </p>
+                </div>
+              </div>
+
+              {inactiveMembersData ? (
+                inactiveMembersData.members.length > 0 ? (
+                  <div className="memberList">
+                    {inactiveMembersData.members.map((member) => (
+                      <div key={member.memberId} className="memberCard">
+                        <div
+                          className="memberAvatar"
+                          style={{
+                            backgroundColor: getAvatarColor(
+                              `${member.firstName}${member.lastName}${member.memberId}`,
+                            ),
+                          }}
+                        >
+                          {getInitials(member.firstName, member.lastName)}
+                        </div>
+
+                        <div className="memberInfo">
+                          <div className="memberCardTop">
+                            <strong>
+                              {member.firstName} {member.lastName}
+                            </strong>
+                            <span
+                              className={`memberBadge memberBadge-${member.membershipStatus}`}
+                            >
+                              {member.membershipStatus}
+                            </span>
+                          </div>
+
+                          <span className="memberEmail">{member.email}</span>
+
+                          <small className="memberId">
+                            {member.lastVisitDate
+                              ? `Last visit: ${toDateInputValue(member.lastVisitDate)} · ${member.daysSinceLastVisit} days ago`
+                              : "No visits recorded yet"}
+                          </small>
+
+                          <div className="actionGroup">
+                            <button
+                              className="secondary"
+                              onClick={() =>
+                                handleSendInactiveReminder(member.memberId)
+                              }
+                              disabled={isLoading || !idToken}
+                            >
+                              Send Reminder
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="emptyState">
+                    <p>
+                      <strong>No inactive members found.</strong>
+                    </p>
+                  </div>
+                )
+              ) : (
+                <div className="emptyState">
+                  <p>
+                    <strong>Inactive members not loaded yet.</strong>
+                  </p>
+                  <p className="mutedText">
+                    Click <code>Load Inactive Members</code>.
                   </p>
                 </div>
               )}
