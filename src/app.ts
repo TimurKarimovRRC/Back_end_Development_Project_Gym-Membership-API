@@ -4,6 +4,7 @@ import memberRoutes from "./api/v1/routes/member.routes";
 import subscriptionRoutes from "./api/v1/routes/subscription.routes";
 import visitRoutes from "./api/v1/routes/visit.routes";
 import healthRoutes from "./api/v1/routes/health.routes";
+import adminRoutes from "./api/v1/routes/admin.routes";
 import { errorHandler, notFoundHandler } from "./api/v1/middleware/errorHandler";
 import { getCorsOptions } from "./config/corsOptions";
 import { helmetMiddleware } from "./config/helmetOptions";
@@ -34,6 +35,7 @@ app.use("/api/v1/health", healthRoutes);
 app.use("/api/v1/members", memberRoutes);
 app.use("/api/v1/subscriptions", subscriptionRoutes);
 app.use("/api/v1/visits", visitRoutes);
+app.use("/api/v1/admin", adminRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

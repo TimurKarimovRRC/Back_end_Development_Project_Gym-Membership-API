@@ -60,9 +60,28 @@ const sendSubscriptionReminderEmail = async (
   });
 };
 
+const sendInactiveMemberReminderEmail = async (
+  recipientEmailAddress: string,
+  memberFirstName: string,
+  daysSinceLastVisit: number | null,
+): Promise<void> => {
+  const inactivityLine =
+    daysSinceLastVisit === null
+      ? "We still have not recorded a gym visit for your account."
+      : `We have not seen you at the gym in ${daysSinceLastVisit} days.`;
+
+  await sendEmail({
+    to: recipientEmailAddress,
+    subject: "We miss you at the gym",
+    text: `Hello ${memberFirstName}, ${inactivityLine} We would love to see you back soon.`,
+    html: `<p>Hello ${memberFirstName},</p><p>${inactivityLine}</p><p>We would love to see you back soon.</p>`,
+  });
+};
+
 export const emailService = {
   isEmailConfigurationAvailable,
   sendEmail,
   sendWelcomeEmail,
   sendSubscriptionReminderEmail,
+  sendInactiveMemberReminderEmail,
 };
