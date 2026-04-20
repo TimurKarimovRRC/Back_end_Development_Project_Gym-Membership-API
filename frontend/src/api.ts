@@ -32,6 +32,83 @@ export interface Member extends MemberInput {
   updatedAt: string;
 }
 
+export interface SubscriptionInput {
+  memberId: string;
+  planName: string;
+  startDate: string;
+  endDate: string;
+  price: number;
+  isActive: boolean;
+  paymentStatus: "paid" | "unpaid" | "overdue";
+}
+
+export interface Subscription extends SubscriptionInput {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VisitInput {
+  memberId: string;
+  visitDate: string;
+  checkInTime: string;
+  checkOutTime: string;
+  notes: string;
+}
+
+export interface Visit extends VisitInput {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminDashboardResponse {
+  message: string;
+  dashboard: {
+    totalMembers: number;
+    totalSubscriptions: number;
+    totalVisits: number;
+    activeMembersCount: number;
+    inactiveMembersCount: number;
+    suspendedMembersCount: number;
+  };
+}
+
+export interface InactiveMemberSummary {
+  memberId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  membershipStatus: "active" | "inactive" | "suspended";
+  lastVisitDate: string | null;
+  daysSinceLastVisit: number | null;
+}
+
+export interface InactiveMembersResponse {
+  thresholdDays: number;
+  totalInactiveMembers: number;
+  members: InactiveMemberSummary[];
+}
+
+export interface ExpiringSubscriptionSummary {
+  subscriptionId: string;
+  memberId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  planName: string;
+  endDate: string;
+  daysUntilEnd: number;
+  paymentStatus: string;
+  isActive: boolean;
+}
+
+export interface ExpiringSubscriptionsResponse {
+  thresholdDays: number;
+  totalExpiringSubscriptions: number;
+  subscriptions: ExpiringSubscriptionSummary[];
+}
+
 const parseJsonResponse = async (response: Response) => {
   const responseText = await response.text();
 
@@ -41,6 +118,11 @@ const parseJsonResponse = async (response: Response) => {
     return { message: responseText || "Unknown response format" };
   }
 };
+
+const getAuthorizedHeaders = (idToken: string) => ({
+  "Content-Type": "application/json",
+  Authorization: `Bearer ${idToken}`,
+});
 
 export const loginWithFirebase = async ({
   email,
@@ -72,7 +154,9 @@ export const loginWithFirebase = async ({
   return responseData as FirebaseLoginResponse;
 };
 
-export const getAdminDashboard = async (idToken: string) => {
+export const getAdminDashboard = async (
+  idToken: string,
+): Promise<AdminDashboardResponse> => {
   const response = await fetch(`${apiBaseUrl}/api/v1/admin/dashboard`, {
     method: "GET",
     headers: {
@@ -86,12 +170,104 @@ export const getAdminDashboard = async (idToken: string) => {
     throw new Error(responseData.message || "Failed to load admin dashboard");
   }
 
+  return responseData as AdminDashboardResponse;
+};
+
+export const getInactiveMembers = async (
+  idToken: string,
+): Promise<InactiveMembersResponse> => {
+  const response = await fetch(`${apiBaseUrl}/api/v1/admin/inactive-members`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+    },
+  });
+
+  const responseData = await parseJsonResponse(response);
+
+  if (!response.ok) {
+    throw new Error(responseData.message || "Failed to load inactive members");
+  }
+
+  return responseData as InactiveMembersResponse;
+};
+
+export const sendInactiveMemberReminder = async (
+  idToken: string,
+  memberId: string,
+) => {
+  const response = await fetch(
+    `${apiBaseUrl}/api/v1/admin/inactive-members/${memberId}/reminder`,
+    {
+      method: "POST",
+      headers: getAuthorizedHeaders(idToken),
+    },
+  );
+
+  const responseData = await parseJsonResponse(response);
+
+  if (!response.ok) {
+    throw new Error(
+      responseData.message || "Failed to send inactive member reminder",
+    );
+  }
+
   return responseData;
 };
 
-export const getMembers = async (): Promise<Member[]> => {
+export const getExpiringSubscriptions = async (
+  idToken: string,
+): Promise<ExpiringSubscriptionsResponse> => {
+  const response = await fetch(
+    `${apiBaseUrl}/api/v1/admin/expiring-subscriptions`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${idToken}`,
+      },
+    },
+  );
+
+  const responseData = await parseJsonResponse(response);
+
+  if (!response.ok) {
+    throw new Error(
+      responseData.message || "Failed to load expiring subscriptions",
+    );
+  }
+
+  return responseData as ExpiringSubscriptionsResponse;
+};
+
+export const sendExpiringSubscriptionReminder = async (
+  idToken: string,
+  subscriptionId: string,
+) => {
+  const response = await fetch(
+    `${apiBaseUrl}/api/v1/admin/expiring-subscriptions/${subscriptionId}/reminder`,
+    {
+      method: "POST",
+      headers: getAuthorizedHeaders(idToken),
+    },
+  );
+
+  const responseData = await parseJsonResponse(response);
+
+  if (!response.ok) {
+    throw new Error(
+      responseData.message || "Failed to send subscription reminder",
+    );
+  }
+
+  return responseData;
+};
+
+export const getMembers = async (idToken: string): Promise<Member[]> => {
   const response = await fetch(`${apiBaseUrl}/api/v1/members`, {
     method: "GET",
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+    },
   });
 
   const responseData = await parseJsonResponse(response);
@@ -103,12 +279,13 @@ export const getMembers = async (): Promise<Member[]> => {
   return responseData as Member[];
 };
 
-export const createMember = async (memberInput: MemberInput) => {
+export const createMember = async (
+  idToken: string,
+  memberInput: MemberInput,
+) => {
   const response = await fetch(`${apiBaseUrl}/api/v1/members`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: getAuthorizedHeaders(idToken),
     body: JSON.stringify(memberInput),
   });
 
@@ -122,14 +299,13 @@ export const createMember = async (memberInput: MemberInput) => {
 };
 
 export const updateMember = async (
+  idToken: string,
   memberId: string,
   memberInput: Partial<MemberInput>,
 ) => {
   const response = await fetch(`${apiBaseUrl}/api/v1/members/${memberId}`, {
     method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: getAuthorizedHeaders(idToken),
     body: JSON.stringify(memberInput),
   });
 
@@ -142,9 +318,12 @@ export const updateMember = async (
   return responseData;
 };
 
-export const deleteMember = async (memberId: string) => {
+export const deleteMember = async (idToken: string, memberId: string) => {
   const response = await fetch(`${apiBaseUrl}/api/v1/members/${memberId}`, {
     method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+    },
   });
 
   const responseData = await parseJsonResponse(response);
@@ -154,4 +333,39 @@ export const deleteMember = async (memberId: string) => {
   }
 
   return responseData;
+};
+
+export const createSubscription = async (
+  idToken: string,
+  subscriptionInput: SubscriptionInput,
+) => {
+  const response = await fetch(`${apiBaseUrl}/api/v1/subscriptions`, {
+    method: "POST",
+    headers: getAuthorizedHeaders(idToken),
+    body: JSON.stringify(subscriptionInput),
+  });
+
+  const responseData = await parseJsonResponse(response);
+
+  if (!response.ok) {
+    throw new Error(responseData.message || "Failed to create subscription");
+  }
+
+  return responseData as Subscription;
+};
+
+export const createVisit = async (idToken: string, visitInput: VisitInput) => {
+  const response = await fetch(`${apiBaseUrl}/api/v1/visits`, {
+    method: "POST",
+    headers: getAuthorizedHeaders(idToken),
+    body: JSON.stringify(visitInput),
+  });
+
+  const responseData = await parseJsonResponse(response);
+
+  if (!response.ok) {
+    throw new Error(responseData.message || "Failed to create visit");
+  }
+
+  return responseData as Visit;
 };
