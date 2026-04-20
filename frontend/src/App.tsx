@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import {
   createMember,
+  createSubscription,
+  createVisit,
   deleteMember,
   getAdminDashboard,
   getExpiringSubscriptions,
@@ -15,6 +17,8 @@ import {
   type InactiveMembersResponse,
   type Member,
   type MemberInput,
+  type SubscriptionInput,
+  type VisitInput,
 } from "./api";
 import "./App.css";
 
@@ -41,6 +45,24 @@ const initialUpdateMemberState = {
   emergencyContactPhoneNumber: "",
   membershipStatus: "active" as MemberInput["membershipStatus"],
   joinDate: "",
+};
+
+const initialCreateSubscriptionState: SubscriptionInput = {
+  memberId: "",
+  planName: "Monthly Premium",
+  startDate: new Date().toISOString(),
+  endDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+  price: 49.99,
+  isActive: true,
+  paymentStatus: "paid",
+};
+
+const initialCreateVisitState: VisitInput = {
+  memberId: "",
+  visitDate: new Date().toISOString(),
+  checkInTime: "09:00",
+  checkOutTime: "10:00",
+  notes: "Workout session",
 };
 
 const getInitials = (firstName: string, lastName: string) =>
@@ -185,6 +207,10 @@ function App() {
   const [updateMemberState, setUpdateMemberState] = useState(
     initialUpdateMemberState,
   );
+  const [createSubscriptionState, setCreateSubscriptionState] =
+    useState<SubscriptionInput>(initialCreateSubscriptionState);
+  const [createVisitState, setCreateVisitState] =
+    useState<VisitInput>(initialCreateVisitState);
   const [isLoading, setIsLoading] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
@@ -212,20 +238,60 @@ function App() {
       return;
     }
 
-    try {
-      const memberList = await getMembers(idToken);
-      setMembers(memberList);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to load members";
-      setMembers([]);
-      setResponseOutput(JSON.stringify({ message }, null, 2));
-      showToast("error", message);
+    const memberList = await getMembers(idToken);
+    setMembers(memberList);
+  };
+
+  const loadDashboard = async () => {
+    if (!idToken) {
+      setAdminDashboard(null);
+      return;
     }
+
+    const adminDashboardResponse = await getAdminDashboard(idToken);
+    setAdminDashboard(adminDashboardResponse.dashboard);
+  };
+
+  const loadInactiveMembers = async () => {
+    if (!idToken) {
+      setInactiveMembersData(null);
+      return;
+    }
+
+    const inactiveMembersResponse = await getInactiveMembers(idToken);
+    setInactiveMembersData(inactiveMembersResponse);
+  };
+
+  const loadExpiringSubscriptions = async () => {
+    if (!idToken) {
+      setExpiringSubscriptionsData(null);
+      return;
+    }
+
+    const expiringSubscriptionsResponse =
+      await getExpiringSubscriptions(idToken);
+    setExpiringSubscriptionsData(expiringSubscriptionsResponse);
   };
 
   useEffect(() => {
-    void loadMembers();
+    const loadInitialData = async () => {
+      if (!idToken) {
+        setMembers([]);
+        return;
+      }
+
+      try {
+        await loadMembers();
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to load members";
+        setMembers([]);
+        setResponseOutput(JSON.stringify({ message }, null, 2));
+        showToast("error", message);
+      }
+    };
+
+    void loadInitialData();
   }, [idToken]);
 
   const handleLogin = async () => {
@@ -264,6 +330,8 @@ function App() {
     setExpiringSubscriptionsData(null);
     setSelectedMemberId("");
     setUpdateMemberState(initialUpdateMemberState);
+    setCreateSubscriptionState(initialCreateSubscriptionState);
+    setCreateVisitState(initialCreateVisitState);
     showToast("success", "Signed out");
   };
 
@@ -361,7 +429,8 @@ function App() {
     setIsLoading(true);
 
     try {
-      const expiringSubscriptionsResponse = await getExpiringSubscriptions(idToken);
+      const expiringSubscriptionsResponse =
+        await getExpiringSubscriptions(idToken);
       setExpiringSubscriptionsData(expiringSubscriptionsResponse);
       setResponseOutput(JSON.stringify(expiringSubscriptionsResponse, null, 2));
       showToast("success", "Expiring subscriptions loaded");
@@ -425,6 +494,10 @@ function App() {
       setResponseOutput(JSON.stringify(createMemberResponse, null, 2));
       await loadMembers();
 
+      if (adminDashboard) {
+        await loadDashboard();
+      }
+
       showToast(
         "success",
         `Created ${createMemberResponse.firstName ?? "member"} ${
@@ -447,12 +520,111 @@ function App() {
           membershipStatus: createMemberResponse.membershipStatus ?? "active",
           joinDate: createMemberResponse.joinDate ?? "",
         });
+
+        setCreateSubscriptionState((currentState) => ({
+          ...currentState,
+          memberId: createMemberResponse.id,
+        }));
+
+        setCreateVisitState((currentState) => ({
+          ...currentState,
+          memberId: createMemberResponse.id,
+        }));
       }
     } catch (error) {
       const message =
         error instanceof Error
           ? error.message
           : "Create member request failed";
+
+      setResponseOutput(JSON.stringify({ message }, null, 2));
+      showToast("error", message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCreateSubscription = async () => {
+    if (!idToken) {
+      const message = "Admin login is required.";
+      setResponseOutput(JSON.stringify({ message }, null, 2));
+      showToast("error", message);
+      return;
+    }
+
+    if (!createSubscriptionState.memberId) {
+      const message = "Select a member for the subscription.";
+      setResponseOutput(JSON.stringify({ message }, null, 2));
+      showToast("error", message);
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const subscriptionResponse = await createSubscription(
+        idToken,
+        createSubscriptionState,
+      );
+
+      setResponseOutput(JSON.stringify(subscriptionResponse, null, 2));
+
+      if (adminDashboard) {
+        await loadDashboard();
+      }
+
+      if (expiringSubscriptionsData) {
+        await loadExpiringSubscriptions();
+      }
+
+      showToast("success", "Subscription created");
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Create subscription request failed";
+
+      setResponseOutput(JSON.stringify({ message }, null, 2));
+      showToast("error", message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCreateVisit = async () => {
+    if (!idToken) {
+      const message = "Admin login is required.";
+      setResponseOutput(JSON.stringify({ message }, null, 2));
+      showToast("error", message);
+      return;
+    }
+
+    if (!createVisitState.memberId) {
+      const message = "Select a member for the visit.";
+      setResponseOutput(JSON.stringify({ message }, null, 2));
+      showToast("error", message);
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const visitResponse = await createVisit(idToken, createVisitState);
+
+      setResponseOutput(JSON.stringify(visitResponse, null, 2));
+
+      if (adminDashboard) {
+        await loadDashboard();
+      }
+
+      if (inactiveMembersData) {
+        await loadInactiveMembers();
+      }
+
+      showToast("success", "Visit created");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Create visit request failed";
 
       setResponseOutput(JSON.stringify({ message }, null, 2));
       showToast("error", message);
@@ -475,6 +647,17 @@ function App() {
       membershipStatus: member.membershipStatus,
       joinDate: member.joinDate,
     });
+
+    setCreateSubscriptionState((currentState) => ({
+      ...currentState,
+      memberId: member.id,
+    }));
+
+    setCreateVisitState((currentState) => ({
+      ...currentState,
+      memberId: member.id,
+    }));
+
     setResponseOutput(JSON.stringify(member, null, 2));
   };
 
@@ -522,6 +705,11 @@ function App() {
 
       setResponseOutput(JSON.stringify(updateMemberResponse, null, 2));
       await loadMembers();
+
+      if (adminDashboard) {
+        await loadDashboard();
+      }
+
       showToast("success", "Member updated");
     } catch (error) {
       const message =
@@ -575,6 +763,10 @@ function App() {
       setResponseOutput(JSON.stringify(deleteResponse, null, 2));
       await loadMembers();
 
+      if (adminDashboard) {
+        await loadDashboard();
+      }
+
       if (updateMemberState.memberId === memberPendingDeletion.id) {
         handleClearUpdateForm();
       }
@@ -612,6 +804,26 @@ function App() {
     fieldValue: string,
   ) => {
     setUpdateMemberState((currentState) => ({
+      ...currentState,
+      [fieldName]: fieldValue,
+    }));
+  };
+
+  const updateCreateSubscriptionState = (
+    fieldName: keyof SubscriptionInput,
+    fieldValue: string | number | boolean,
+  ) => {
+    setCreateSubscriptionState((currentState) => ({
+      ...currentState,
+      [fieldName]: fieldValue,
+    }));
+  };
+
+  const updateCreateVisitState = (
+    fieldName: keyof VisitInput,
+    fieldValue: string,
+  ) => {
+    setCreateVisitState((currentState) => ({
       ...currentState,
       [fieldName]: fieldValue,
     }));
@@ -689,8 +901,8 @@ function App() {
               <h1>Gym Membership API</h1>
               <p className="heroText">
                 Firebase login, admin authorization, member creation, editing,
-                deletion, inactive-member reminders, and expiring-subscription
-                reminders in one clean interface.
+                deletion, inactive-member reminders, expiring-subscription
+                reminders, plus quick forms for subscriptions and visits.
               </p>
             </div>
 
@@ -1029,11 +1241,7 @@ function App() {
                             <strong>
                               {subscription.firstName} {subscription.lastName}
                             </strong>
-                            <span
-                              className={`memberBadge memberBadge-${
-                                subscription.isActive ? "active" : "inactive"
-                              }`}
-                            >
+                            <span className="memberBadge memberBadge-active">
                               {subscription.planName}
                             </span>
                           </div>
@@ -1089,7 +1297,8 @@ function App() {
                     Members <span className="countBadge">{members.length}</span>
                   </h2>
                   <p className="mutedText">
-                    Click a member to load their data into the edit form.
+                    Click a member to load their data into the edit form and test
+                    forms below.
                   </p>
                 </div>
 
@@ -1510,6 +1719,208 @@ function App() {
                     <span>Delete</span>
                   </button>
                 </div>
+              </section>
+            </div>
+
+            <div className="formRow">
+              <section className="panel">
+                <h2>Create Subscription</h2>
+                <p className="mutedText">
+                  Use this to test expiring subscriptions and reminder emails.
+                </p>
+
+                <div className="formGrid">
+                  <label>
+                    Member
+                    <select
+                      value={createSubscriptionState.memberId}
+                      onChange={(event) =>
+                        updateCreateSubscriptionState("memberId", event.target.value)
+                      }
+                    >
+                      <option value="">Select member</option>
+                      {members.map((member) => (
+                        <option key={member.id} value={member.id}>
+                          {member.firstName} {member.lastName}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label>
+                    Plan Name
+                    <input
+                      value={createSubscriptionState.planName}
+                      onChange={(event) =>
+                        updateCreateSubscriptionState("planName", event.target.value)
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    Start Date
+                    <input
+                      type="date"
+                      value={toDateInputValue(createSubscriptionState.startDate)}
+                      onChange={(event) =>
+                        updateCreateSubscriptionState(
+                          "startDate",
+                          fromDateInputValue(event.target.value),
+                        )
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    End Date
+                    <input
+                      type="date"
+                      value={toDateInputValue(createSubscriptionState.endDate)}
+                      onChange={(event) =>
+                        updateCreateSubscriptionState(
+                          "endDate",
+                          fromDateInputValue(event.target.value),
+                        )
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    Price
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={createSubscriptionState.price}
+                      onChange={(event) =>
+                        updateCreateSubscriptionState(
+                          "price",
+                          Number(event.target.value),
+                        )
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    Payment Status
+                    <select
+                      value={createSubscriptionState.paymentStatus}
+                      onChange={(event) =>
+                        updateCreateSubscriptionState(
+                          "paymentStatus",
+                          event.target.value,
+                        )
+                      }
+                    >
+                      <option value="paid">Paid</option>
+                      <option value="unpaid">Unpaid</option>
+                      <option value="overdue">Overdue</option>
+                    </select>
+                  </label>
+
+                  <label>
+                    Is Active
+                    <select
+                      value={createSubscriptionState.isActive ? "true" : "false"}
+                      onChange={(event) =>
+                        updateCreateSubscriptionState(
+                          "isActive",
+                          event.target.value === "true",
+                        )
+                      }
+                    >
+                      <option value="true">True</option>
+                      <option value="false">False</option>
+                    </select>
+                  </label>
+                </div>
+
+                <button
+                  onClick={handleCreateSubscription}
+                  disabled={isLoading || !idToken}
+                >
+                  {isLoading ? "Creating..." : "Create Subscription"}
+                </button>
+              </section>
+
+              <section className="panel">
+                <h2>Create Visit</h2>
+                <p className="mutedText">
+                  Use this to test inactive members and reminder emails.
+                </p>
+
+                <div className="formGrid">
+                  <label>
+                    Member
+                    <select
+                      value={createVisitState.memberId}
+                      onChange={(event) =>
+                        updateCreateVisitState("memberId", event.target.value)
+                      }
+                    >
+                      <option value="">Select member</option>
+                      {members.map((member) => (
+                        <option key={member.id} value={member.id}>
+                          {member.firstName} {member.lastName}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label>
+                    Visit Date
+                    <input
+                      type="date"
+                      value={toDateInputValue(createVisitState.visitDate)}
+                      onChange={(event) =>
+                        updateCreateVisitState(
+                          "visitDate",
+                          fromDateInputValue(event.target.value),
+                        )
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    Check In Time
+                    <input
+                      type="time"
+                      value={createVisitState.checkInTime}
+                      onChange={(event) =>
+                        updateCreateVisitState("checkInTime", event.target.value)
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    Check Out Time
+                    <input
+                      type="time"
+                      value={createVisitState.checkOutTime}
+                      onChange={(event) =>
+                        updateCreateVisitState("checkOutTime", event.target.value)
+                      }
+                    />
+                  </label>
+
+                  <label className="formGridSingle">
+                    Notes
+                    <textarea
+                      rows={4}
+                      value={createVisitState.notes}
+                      onChange={(event) =>
+                        updateCreateVisitState("notes", event.target.value)
+                      }
+                    />
+                  </label>
+                </div>
+
+                <button
+                  onClick={handleCreateVisit}
+                  disabled={isLoading || !idToken}
+                >
+                  {isLoading ? "Creating..." : "Create Visit"}
+                </button>
               </section>
             </div>
           </main>

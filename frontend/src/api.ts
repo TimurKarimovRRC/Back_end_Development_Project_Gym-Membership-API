@@ -32,6 +32,36 @@ export interface Member extends MemberInput {
   updatedAt: string;
 }
 
+export interface SubscriptionInput {
+  memberId: string;
+  planName: string;
+  startDate: string;
+  endDate: string;
+  price: number;
+  isActive: boolean;
+  paymentStatus: "paid" | "unpaid" | "overdue";
+}
+
+export interface Subscription extends SubscriptionInput {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VisitInput {
+  memberId: string;
+  visitDate: string;
+  checkInTime: string;
+  checkOutTime: string;
+  notes: string;
+}
+
+export interface Visit extends VisitInput {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface AdminDashboardResponse {
   message: string;
   dashboard: {
@@ -303,4 +333,39 @@ export const deleteMember = async (idToken: string, memberId: string) => {
   }
 
   return responseData;
+};
+
+export const createSubscription = async (
+  idToken: string,
+  subscriptionInput: SubscriptionInput,
+) => {
+  const response = await fetch(`${apiBaseUrl}/api/v1/subscriptions`, {
+    method: "POST",
+    headers: getAuthorizedHeaders(idToken),
+    body: JSON.stringify(subscriptionInput),
+  });
+
+  const responseData = await parseJsonResponse(response);
+
+  if (!response.ok) {
+    throw new Error(responseData.message || "Failed to create subscription");
+  }
+
+  return responseData as Subscription;
+};
+
+export const createVisit = async (idToken: string, visitInput: VisitInput) => {
+  const response = await fetch(`${apiBaseUrl}/api/v1/visits`, {
+    method: "POST",
+    headers: getAuthorizedHeaders(idToken),
+    body: JSON.stringify(visitInput),
+  });
+
+  const responseData = await parseJsonResponse(response);
+
+  if (!response.ok) {
+    throw new Error(responseData.message || "Failed to create visit");
+  }
+
+  return responseData as Visit;
 };
