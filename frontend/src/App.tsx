@@ -3,12 +3,15 @@ import {
   createMember,
   deleteMember,
   getAdminDashboard,
+  getExpiringSubscriptions,
   getInactiveMembers,
   getMembers,
   loginWithFirebase,
+  sendExpiringSubscriptionReminder,
   sendInactiveMemberReminder,
   updateMember,
   type AdminDashboardResponse,
+  type ExpiringSubscriptionsResponse,
   type InactiveMembersResponse,
   type Member,
   type MemberInput,
@@ -174,6 +177,8 @@ function App() {
   >(null);
   const [inactiveMembersData, setInactiveMembersData] =
     useState<InactiveMembersResponse | null>(null);
+  const [expiringSubscriptionsData, setExpiringSubscriptionsData] =
+    useState<ExpiringSubscriptionsResponse | null>(null);
   const [createMemberState, setCreateMemberState] = useState<MemberInput>(
     initialCreateMemberState,
   );
@@ -256,6 +261,7 @@ function App() {
     setMembers([]);
     setAdminDashboard(null);
     setInactiveMembersData(null);
+    setExpiringSubscriptionsData(null);
     setSelectedMemberId("");
     setUpdateMemberState(initialUpdateMemberState);
     showToast("success", "Signed out");
@@ -336,6 +342,66 @@ function App() {
         error instanceof Error
           ? error.message
           : "Inactive reminder request failed";
+
+      setResponseOutput(JSON.stringify({ message }, null, 2));
+      showToast("error", message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleLoadExpiringSubscriptions = async () => {
+    if (!idToken) {
+      const message = "No token available. Please log in first.";
+      setResponseOutput(message);
+      showToast("error", message);
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const expiringSubscriptionsResponse = await getExpiringSubscriptions(idToken);
+      setExpiringSubscriptionsData(expiringSubscriptionsResponse);
+      setResponseOutput(JSON.stringify(expiringSubscriptionsResponse, null, 2));
+      showToast("success", "Expiring subscriptions loaded");
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Expiring subscriptions request failed";
+
+      setResponseOutput(JSON.stringify({ message }, null, 2));
+      showToast("error", message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSendExpiringSubscriptionReminder = async (
+    subscriptionId: string,
+  ) => {
+    if (!idToken) {
+      const message = "Admin login is required.";
+      setResponseOutput(JSON.stringify({ message }, null, 2));
+      showToast("error", message);
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const reminderResponse = await sendExpiringSubscriptionReminder(
+        idToken,
+        subscriptionId,
+      );
+      setResponseOutput(JSON.stringify(reminderResponse, null, 2));
+      showToast("success", "Subscription reminder sent");
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Subscription reminder request failed";
 
       setResponseOutput(JSON.stringify({ message }, null, 2));
       showToast("error", message);
@@ -623,7 +689,8 @@ function App() {
               <h1>Gym Membership API</h1>
               <p className="heroText">
                 Firebase login, admin authorization, member creation, editing,
-                deletion, and inactive-member reminders in one clean interface.
+                deletion, inactive-member reminders, and expiring-subscription
+                reminders in one clean interface.
               </p>
             </div>
 
@@ -738,6 +805,13 @@ function App() {
                   disabled={isLoading || !idToken}
                 >
                   Load Inactive Members
+                </button>
+                <button
+                  className="secondary"
+                  onClick={handleLoadExpiringSubscriptions}
+                  disabled={isLoading || !idToken}
+                >
+                  Load Expiring Subscriptions
                 </button>
               </div>
             </section>
@@ -912,6 +986,97 @@ function App() {
                   </p>
                   <p className="mutedText">
                     Click <code>Load Inactive Members</code>.
+                  </p>
+                </div>
+              )}
+            </section>
+
+            <section className="panel">
+              <div className="sectionHeader">
+                <div>
+                  <h2>
+                    Expiring Subscriptions{" "}
+                    <span className="countBadge">
+                      {expiringSubscriptionsData?.totalExpiringSubscriptions ?? 0}
+                    </span>
+                  </h2>
+                  <p className="mutedText">
+                    Active subscriptions ending within{" "}
+                    <code>{expiringSubscriptionsData?.thresholdDays ?? 7}</code>{" "}
+                    days.
+                  </p>
+                </div>
+              </div>
+
+              {expiringSubscriptionsData ? (
+                expiringSubscriptionsData.subscriptions.length > 0 ? (
+                  <div className="memberList">
+                    {expiringSubscriptionsData.subscriptions.map((subscription) => (
+                      <div key={subscription.subscriptionId} className="memberCard">
+                        <div
+                          className="memberAvatar"
+                          style={{
+                            backgroundColor: getAvatarColor(
+                              `${subscription.firstName}${subscription.lastName}${subscription.subscriptionId}`,
+                            ),
+                          }}
+                        >
+                          {getInitials(subscription.firstName, subscription.lastName)}
+                        </div>
+
+                        <div className="memberInfo">
+                          <div className="memberCardTop">
+                            <strong>
+                              {subscription.firstName} {subscription.lastName}
+                            </strong>
+                            <span
+                              className={`memberBadge memberBadge-${
+                                subscription.isActive ? "active" : "inactive"
+                              }`}
+                            >
+                              {subscription.planName}
+                            </span>
+                          </div>
+
+                          <span className="memberEmail">{subscription.email}</span>
+
+                          <small className="memberId">
+                            Ends on {toDateInputValue(subscription.endDate)} ·{" "}
+                            {subscription.daysUntilEnd} day(s) left ·{" "}
+                            {subscription.paymentStatus}
+                          </small>
+
+                          <div className="actionGroup">
+                            <button
+                              className="secondary"
+                              onClick={() =>
+                                handleSendExpiringSubscriptionReminder(
+                                  subscription.subscriptionId,
+                                )
+                              }
+                              disabled={isLoading || !idToken}
+                            >
+                              Send Reminder
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="emptyState">
+                    <p>
+                      <strong>No expiring subscriptions found.</strong>
+                    </p>
+                  </div>
+                )
+              ) : (
+                <div className="emptyState">
+                  <p>
+                    <strong>Expiring subscriptions not loaded yet.</strong>
+                  </p>
+                  <p className="mutedText">
+                    Click <code>Load Expiring Subscriptions</code>.
                   </p>
                 </div>
               )}
