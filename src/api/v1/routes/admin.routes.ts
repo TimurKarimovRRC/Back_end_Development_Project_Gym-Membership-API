@@ -26,4 +26,18 @@ adminRoutes.post(
   adminController.sendInactiveMemberReminder,
 );
 
+adminRoutes.get(
+  "/expiring-subscriptions",
+  authenticate,
+  authorize("admin"),
+  adminController.getExpiringSubscriptions,
+);
+
+adminRoutes.post(
+  "/expiring-subscriptions/:subscriptionId/reminder",
+  authenticate,
+  authorize("admin"),
+  adminController.sendExpiringSubscriptionReminder,
+);
+
 export default adminRoutes;
