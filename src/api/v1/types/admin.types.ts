@@ -22,3 +22,22 @@ export interface InactiveMembersResponse {
   totalInactiveMembers: number;
   members: InactiveMemberSummary[];
 }
+
+export interface ExpiringSubscriptionSummary {
+  subscriptionId: string;
+  memberId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  planName: string;
+  endDate: string;
+  daysUntilEnd: number;
+  paymentStatus: string;
+  isActive: boolean;
+}
+
+export interface ExpiringSubscriptionsResponse {
+  thresholdDays: number;
+  totalExpiringSubscriptions: number;
+  subscriptions: ExpiringSubscriptionSummary[];
+}
