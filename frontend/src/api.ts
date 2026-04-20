@@ -14,7 +14,7 @@ interface LoginInput {
   password: string;
 }
 
-interface CreateMemberInput {
+export interface MemberInput {
   firstName: string;
   lastName: string;
   email: string;
@@ -24,6 +24,12 @@ interface CreateMemberInput {
   emergencyContactPhoneNumber: string;
   membershipStatus: "active" | "inactive" | "suspended";
   joinDate: string;
+}
+
+export interface Member extends MemberInput {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 const parseJsonResponse = async (response: Response) => {
@@ -83,19 +89,54 @@ export const getAdminDashboard = async (idToken: string) => {
   return responseData;
 };
 
-export const createMember = async (createMemberInput: CreateMemberInput) => {
+export const getMembers = async (): Promise<Member[]> => {
+  const response = await fetch(`${apiBaseUrl}/api/v1/members`, {
+    method: "GET",
+  });
+
+  const responseData = await parseJsonResponse(response);
+
+  if (!response.ok) {
+    throw new Error(responseData.message || "Failed to load members");
+  }
+
+  return responseData as Member[];
+};
+
+export const createMember = async (memberInput: MemberInput) => {
   const response = await fetch(`${apiBaseUrl}/api/v1/members`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(createMemberInput),
+    body: JSON.stringify(memberInput),
   });
 
   const responseData = await parseJsonResponse(response);
 
   if (!response.ok) {
     throw new Error(responseData.message || "Failed to create member");
+  }
+
+  return responseData;
+};
+
+export const updateMember = async (
+  memberId: string,
+  memberInput: Partial<MemberInput>,
+) => {
+  const response = await fetch(`${apiBaseUrl}/api/v1/members/${memberId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(memberInput),
+  });
+
+  const responseData = await parseJsonResponse(response);
+
+  if (!response.ok) {
+    throw new Error(responseData.message || "Failed to update member");
   }
 
   return responseData;
