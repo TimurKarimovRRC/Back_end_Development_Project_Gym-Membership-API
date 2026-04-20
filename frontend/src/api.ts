@@ -60,6 +60,25 @@ export interface InactiveMembersResponse {
   members: InactiveMemberSummary[];
 }
 
+export interface ExpiringSubscriptionSummary {
+  subscriptionId: string;
+  memberId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  planName: string;
+  endDate: string;
+  daysUntilEnd: number;
+  paymentStatus: string;
+  isActive: boolean;
+}
+
+export interface ExpiringSubscriptionsResponse {
+  thresholdDays: number;
+  totalExpiringSubscriptions: number;
+  subscriptions: ExpiringSubscriptionSummary[];
+}
+
 const parseJsonResponse = async (response: Response) => {
   const responseText = await response.text();
 
@@ -160,6 +179,53 @@ export const sendInactiveMemberReminder = async (
   if (!response.ok) {
     throw new Error(
       responseData.message || "Failed to send inactive member reminder",
+    );
+  }
+
+  return responseData;
+};
+
+export const getExpiringSubscriptions = async (
+  idToken: string,
+): Promise<ExpiringSubscriptionsResponse> => {
+  const response = await fetch(
+    `${apiBaseUrl}/api/v1/admin/expiring-subscriptions`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${idToken}`,
+      },
+    },
+  );
+
+  const responseData = await parseJsonResponse(response);
+
+  if (!response.ok) {
+    throw new Error(
+      responseData.message || "Failed to load expiring subscriptions",
+    );
+  }
+
+  return responseData as ExpiringSubscriptionsResponse;
+};
+
+export const sendExpiringSubscriptionReminder = async (
+  idToken: string,
+  subscriptionId: string,
+) => {
+  const response = await fetch(
+    `${apiBaseUrl}/api/v1/admin/expiring-subscriptions/${subscriptionId}/reminder`,
+    {
+      method: "POST",
+      headers: getAuthorizedHeaders(idToken),
+    },
+  );
+
+  const responseData = await parseJsonResponse(response);
+
+  if (!response.ok) {
+    throw new Error(
+      responseData.message || "Failed to send subscription reminder",
     );
   }
 
