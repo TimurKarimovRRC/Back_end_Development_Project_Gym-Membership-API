@@ -42,6 +42,11 @@ const parseJsonResponse = async (response: Response) => {
   }
 };
 
+const getAuthorizedHeaders = (idToken: string) => ({
+  "Content-Type": "application/json",
+  Authorization: `Bearer ${idToken}`,
+});
+
 export const loginWithFirebase = async ({
   email,
   password,
@@ -89,9 +94,12 @@ export const getAdminDashboard = async (idToken: string) => {
   return responseData;
 };
 
-export const getMembers = async (): Promise<Member[]> => {
+export const getMembers = async (idToken: string): Promise<Member[]> => {
   const response = await fetch(`${apiBaseUrl}/api/v1/members`, {
     method: "GET",
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+    },
   });
 
   const responseData = await parseJsonResponse(response);
@@ -103,12 +111,13 @@ export const getMembers = async (): Promise<Member[]> => {
   return responseData as Member[];
 };
 
-export const createMember = async (memberInput: MemberInput) => {
+export const createMember = async (
+  idToken: string,
+  memberInput: MemberInput,
+) => {
   const response = await fetch(`${apiBaseUrl}/api/v1/members`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: getAuthorizedHeaders(idToken),
     body: JSON.stringify(memberInput),
   });
 
@@ -122,14 +131,13 @@ export const createMember = async (memberInput: MemberInput) => {
 };
 
 export const updateMember = async (
+  idToken: string,
   memberId: string,
   memberInput: Partial<MemberInput>,
 ) => {
   const response = await fetch(`${apiBaseUrl}/api/v1/members/${memberId}`, {
     method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: getAuthorizedHeaders(idToken),
     body: JSON.stringify(memberInput),
   });
 
@@ -142,9 +150,12 @@ export const updateMember = async (
   return responseData;
 };
 
-export const deleteMember = async (memberId: string) => {
+export const deleteMember = async (idToken: string, memberId: string) => {
   const response = await fetch(`${apiBaseUrl}/api/v1/members/${memberId}`, {
     method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+    },
   });
 
   const responseData = await parseJsonResponse(response);
