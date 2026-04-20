@@ -32,6 +32,18 @@ export interface Member extends MemberInput {
   updatedAt: string;
 }
 
+export interface AdminDashboardResponse {
+  message: string;
+  dashboard: {
+    totalMembers: number;
+    totalSubscriptions: number;
+    totalVisits: number;
+    activeMembersCount: number;
+    inactiveMembersCount: number;
+    suspendedMembersCount: number;
+  };
+}
+
 const parseJsonResponse = async (response: Response) => {
   const responseText = await response.text();
 
@@ -77,7 +89,9 @@ export const loginWithFirebase = async ({
   return responseData as FirebaseLoginResponse;
 };
 
-export const getAdminDashboard = async (idToken: string) => {
+export const getAdminDashboard = async (
+  idToken: string,
+): Promise<AdminDashboardResponse> => {
   const response = await fetch(`${apiBaseUrl}/api/v1/admin/dashboard`, {
     method: "GET",
     headers: {
@@ -91,7 +105,7 @@ export const getAdminDashboard = async (idToken: string) => {
     throw new Error(responseData.message || "Failed to load admin dashboard");
   }
 
-  return responseData;
+  return responseData as AdminDashboardResponse;
 };
 
 export const getMembers = async (idToken: string): Promise<Member[]> => {

@@ -1,30 +1,23 @@
-/* ========== Design tokens ========== */
-
 :root {
   color-scheme: light;
 
-  /* Surfaces */
   --color-bg: #f3f4f6;
   --color-panel: #ffffff;
   --color-panel-hover: #eff6ff;
   --color-subtle: #f9fafb;
 
-  /* Borders */
   --color-border: #e5e7eb;
   --color-border-strong: #d1d5db;
 
-  /* Text */
   --color-text: #111827;
   --color-text-muted: #6b7280;
   --color-text-subtle: #9ca3af;
   --color-label: #374151;
 
-  /* Inputs */
   --color-input-bg: #ffffff;
   --color-input-readonly-bg: #f9fafb;
   --color-input-border: #d1d5db;
 
-  /* Accent */
   --color-accent: #2563eb;
   --color-accent-hover: #1d4ed8;
   --color-accent-soft: #dbeafe;
@@ -32,22 +25,18 @@
   --color-accent-disabled: #93c5fd;
   --color-accent-focus-ring: rgba(37, 99, 235, 0.12);
 
-  /* Secondary button */
   --color-secondary-bg: #ffffff;
   --color-secondary-hover: #f9fafb;
   --color-ghost-hover: #eff6ff;
 
-  /* Danger */
   --color-danger: #dc2626;
   --color-danger-hover: #b91c1c;
   --color-danger-soft: #fee2e2;
   --color-danger-focus-ring: rgba(220, 38, 38, 0.18);
 
-  /* Count badge */
   --color-count-bg: #e5e7eb;
   --color-count-text: #4b5563;
 
-  /* Status badges */
   --badge-active-bg: #d1fae5;
   --badge-active-text: #065f46;
   --badge-inactive-bg: #e5e7eb;
@@ -55,22 +44,18 @@
   --badge-suspended-bg: #fee2e2;
   --badge-suspended-text: #991b1b;
 
-  /* Code block */
   --color-code-bg: #0f172a;
   --color-code-text: #e5e7eb;
 
-  /* Empty state */
   --color-empty-bg: #f9fafb;
   --color-empty-border: #d1d5db;
 
-  /* Shadows */
   --shadow-hero: 0 12px 30px rgba(15, 23, 42, 0.15);
   --shadow-panel: 0 8px 24px rgba(15, 23, 42, 0.06);
   --shadow-toast: 0 10px 30px rgba(15, 23, 42, 0.15);
   --shadow-modal: 0 20px 50px rgba(15, 23, 42, 0.25);
   --shadow-active-card: 0 0 0 3px rgba(37, 99, 235, 0.12);
 
-  /* Hero status pill */
   --hero-status-bg: rgba(255, 255, 255, 0.08);
   --hero-status-border: rgba(255, 255, 255, 0.15);
   --hero-status-text: #e5e7eb;
@@ -78,12 +63,10 @@
   --hero-status-active-border: rgba(34, 197, 94, 0.35);
   --hero-status-active-text: #bbf7d0;
 
-  /* Toast */
   --toast-success-bg: #065f46;
   --toast-error-bg: #991b1b;
   --toast-text: #ffffff;
 
-  /* Modal overlay */
   --modal-overlay-bg: rgba(15, 23, 42, 0.5);
 }
 
@@ -151,8 +134,6 @@
   --modal-overlay-bg: rgba(0, 0, 0, 0.6);
 }
 
-/* ========== Page ========== */
-
 .page {
   min-height: 100vh;
   background: var(--color-bg);
@@ -167,8 +148,6 @@
   display: grid;
   gap: 24px;
 }
-
-/* ========== Hero ========== */
 
 .hero {
   background: linear-gradient(135deg, #111827, #1e3a8a);
@@ -277,8 +256,6 @@
   height: 18px;
 }
 
-/* ========== Layout ========== */
-
 .layout {
   display: grid;
   grid-template-columns: 340px 1fr;
@@ -303,8 +280,6 @@
   grid-template-columns: 1fr 1fr;
   gap: 20px;
 }
-
-/* ========== Panels ========== */
 
 .panel {
   background: var(--color-panel);
@@ -390,8 +365,6 @@
   margin-top: 0;
 }
 
-/* ========== Forms ========== */
-
 .formGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -464,8 +437,6 @@ input[readonly] {
   background-position: 12px center;
   padding-left: 40px;
 }
-
-/* ========== Buttons ========== */
 
 button {
   display: inline-flex;
@@ -558,8 +529,6 @@ button.danger:disabled {
   flex: 1;
   min-width: 140px;
 }
-
-/* ========== Member list ========== */
 
 .memberList {
   display: grid;
@@ -707,7 +676,32 @@ button.danger:disabled {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
-/* ========== Response pane ========== */
+.dashboardGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.statCard {
+  background: var(--color-subtle);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  padding: 18px;
+  display: grid;
+  gap: 8px;
+}
+
+.statLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.statValue {
+  font-size: 30px;
+  line-height: 1;
+  color: var(--color-text);
+}
 
 pre {
   margin: 0;
@@ -723,8 +717,6 @@ pre {
   min-height: 220px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
-
-/* ========== Toast ========== */
 
 .toast {
   position: fixed;
@@ -775,8 +767,6 @@ pre {
     transform: translateY(0);
   }
 }
-
-/* ========== Modal ========== */
 
 .modalOverlay {
   position: fixed;
@@ -849,8 +839,6 @@ pre {
   }
 }
 
-/* ========== Responsive ========== */
-
 @media (max-width: 1100px) {
   .layout {
     grid-template-columns: 1fr;
@@ -862,6 +850,12 @@ pre {
 
   .formRow {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .dashboardGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -908,5 +902,9 @@ pre {
 
   .actionGroup button {
     width: 100%;
+  }
+
+  .dashboardGrid {
+    grid-template-columns: 1fr;
   }
 }

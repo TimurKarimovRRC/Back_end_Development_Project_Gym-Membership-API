@@ -6,6 +6,7 @@ import {
   getMembers,
   loginWithFirebase,
   updateMember,
+  type AdminDashboardResponse,
   type Member,
   type MemberInput,
 } from "./api";
@@ -165,6 +166,9 @@ function App() {
   const [members, setMembers] = useState<Member[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedMemberId, setSelectedMemberId] = useState("");
+  const [adminDashboard, setAdminDashboard] = useState<
+    AdminDashboardResponse["dashboard"] | null
+  >(null);
   const [createMemberState, setCreateMemberState] = useState<MemberInput>(
     initialCreateMemberState,
   );
@@ -245,6 +249,7 @@ function App() {
     setLoginEmail("");
     setLoginPassword("");
     setMembers([]);
+    setAdminDashboard(null);
     setSelectedMemberId("");
     setUpdateMemberState(initialUpdateMemberState);
     showToast("success", "Signed out");
@@ -262,6 +267,7 @@ function App() {
 
     try {
       const adminDashboardResponse = await getAdminDashboard(idToken);
+      setAdminDashboard(adminDashboardResponse.dashboard);
       setResponseOutput(JSON.stringify(adminDashboardResponse, null, 2));
       showToast("success", "Admin dashboard loaded");
     } catch (error) {
@@ -690,6 +696,72 @@ function App() {
           </aside>
 
           <main className="mainContent">
+            <section className="panel">
+              <div className="sectionHeader">
+                <div>
+                  <h2>Dashboard Overview</h2>
+                  <p className="mutedText">
+                    Real values from the admin dashboard endpoint.
+                  </p>
+                </div>
+              </div>
+
+              {adminDashboard ? (
+                <div className="dashboardGrid">
+                  <div className="statCard">
+                    <span className="statLabel">Total Members</span>
+                    <strong className="statValue">
+                      {adminDashboard.totalMembers}
+                    </strong>
+                  </div>
+
+                  <div className="statCard">
+                    <span className="statLabel">Total Subscriptions</span>
+                    <strong className="statValue">
+                      {adminDashboard.totalSubscriptions}
+                    </strong>
+                  </div>
+
+                  <div className="statCard">
+                    <span className="statLabel">Total Visits</span>
+                    <strong className="statValue">
+                      {adminDashboard.totalVisits}
+                    </strong>
+                  </div>
+
+                  <div className="statCard">
+                    <span className="statLabel">Active Members</span>
+                    <strong className="statValue">
+                      {adminDashboard.activeMembersCount}
+                    </strong>
+                  </div>
+
+                  <div className="statCard">
+                    <span className="statLabel">Inactive Members</span>
+                    <strong className="statValue">
+                      {adminDashboard.inactiveMembersCount}
+                    </strong>
+                  </div>
+
+                  <div className="statCard">
+                    <span className="statLabel">Suspended Members</span>
+                    <strong className="statValue">
+                      {adminDashboard.suspendedMembersCount}
+                    </strong>
+                  </div>
+                </div>
+              ) : (
+                <div className="emptyState">
+                  <p>
+                    <strong>Dashboard not loaded yet.</strong>
+                  </p>
+                  <p className="mutedText">
+                    Sign in as admin and click <code>Call Admin Dashboard</code>.
+                  </p>
+                </div>
+              )}
+            </section>
+
             <section className="panel">
               <div className="sectionHeader">
                 <div>
