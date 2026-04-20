@@ -141,3 +141,17 @@ export const updateMember = async (
 
   return responseData;
 };
+
+export const deleteMember = async (memberId: string) => {
+  const response = await fetch(`${apiBaseUrl}/api/v1/members/${memberId}`, {
+    method: "DELETE",
+  });
+
+  const responseData = await parseJsonResponse(response);
+
+  if (!response.ok) {
+    throw new Error(responseData.message || "Failed to delete member");
+  }
+
+  return responseData;
+};

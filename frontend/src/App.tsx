@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   createMember,
+  deleteMember,
   getAdminDashboard,
   getMembers,
   loginWithFirebase,
@@ -35,21 +36,15 @@ const initialUpdateMemberState = {
   joinDate: "",
 };
 
-// --- helpers ---
+// --- helpers -----------------------------------------------------------------
 
 const getInitials = (firstName: string, lastName: string) =>
   `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase() || "?";
 
 const getAvatarColor = (seed: string) => {
   const palette = [
-    "#2563eb",
-    "#7c3aed",
-    "#db2777",
-    "#16a34a",
-    "#ea580c",
-    "#0891b2",
-    "#dc2626",
-    "#4f46e5",
+    "#2563eb", "#7c3aed", "#db2777", "#16a34a",
+    "#ea580c", "#0891b2", "#dc2626", "#4f46e5",
   ];
   let hash = 0;
   for (let i = 0; i < seed.length; i += 1) {
@@ -58,7 +53,6 @@ const getAvatarColor = (seed: string) => {
   return palette[Math.abs(hash) % palette.length];
 };
 
-// <input type="date"> wants "YYYY-MM-DD"; API returns ISO strings.
 const toDateInputValue = (isoString: string) => {
   if (!isoString) return "";
   const date = new Date(isoString);
@@ -73,10 +67,40 @@ const fromDateInputValue = (dateString: string) => {
   return date.toISOString();
 };
 
+type Theme = "light" | "dark";
+const THEME_STORAGE_KEY = "gym-api-theme";
+
+const getInitialTheme = (): Theme => {
+  if (typeof window === "undefined") return "light";
+  const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+  if (stored === "light" || stored === "dark") return stored;
+  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  return prefersDark ? "dark" : "light";
+};
+
 interface ToastState {
   type: "success" | "error";
   message: string;
 }
+
+const SunIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="4" />
+    <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+  </svg>
+);
+
+const MoonIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+  </svg>
+);
+
+const TrashIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
+    <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14zM10 11v6M14 11v6" />
+  </svg>
+);
 
 function App() {
   const [loginEmail, setLoginEmail] = useState("");
@@ -88,14 +112,20 @@ function App() {
   const [members, setMembers] = useState<Member[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedMemberId, setSelectedMemberId] = useState("");
-  const [createMemberState, setCreateMemberState] = useState<MemberInput>(
-    initialCreateMemberState,
-  );
-  const [updateMemberState, setUpdateMemberState] = useState(
-    initialUpdateMemberState,
-  );
+  const [createMemberState, setCreateMemberState] = useState<MemberInput>(initialCreateMemberState);
+  const [updateMemberState, setUpdateMemberState] = useState(initialUpdateMemberState);
   const [isLoading, setIsLoading] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
+  const [theme, setTheme] = useState<Theme>(getInitialTheme);
+  const [memberPendingDeletion, setMemberPendingDeletion] = useState<Member | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+  }, [theme]);
+
+  const toggleTheme = () => setTheme((c) => (c === "light" ? "dark" : "light"));
 
   const showToast = (type: ToastState["type"], message: string) => {
     setToast({ type, message });
@@ -107,8 +137,7 @@ function App() {
       const memberList = await getMembers();
       setMembers(memberList);
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to load members";
+      const message = error instanceof Error ? error.message : "Failed to load members";
       setResponseOutput(JSON.stringify({ message }, null, 2));
       showToast("error", message);
     }
@@ -121,13 +150,8 @@ function App() {
   const handleLogin = async () => {
     setIsLoading(true);
     setAuthMessage("Logging in...");
-
     try {
-      const loginResponse = await loginWithFirebase({
-        email: loginEmail,
-        password: loginPassword,
-      });
-
+      const loginResponse = await loginWithFirebase({ email: loginEmail, password: loginPassword });
       setIdToken(loginResponse.idToken);
       setSignedInEmail(loginResponse.email);
       setAuthMessage(`Logged in as ${loginResponse.email}`);
@@ -158,18 +182,13 @@ function App() {
       showToast("error", message);
       return;
     }
-
     setIsLoading(true);
-
     try {
       const adminDashboardResponse = await getAdminDashboard(idToken);
       setResponseOutput(JSON.stringify(adminDashboardResponse, null, 2));
       showToast("success", "Admin dashboard loaded");
     } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Admin dashboard request failed";
+      const message = error instanceof Error ? error.message : "Admin dashboard request failed";
       setResponseOutput(JSON.stringify({ message }, null, 2));
       showToast("error", message);
     } finally {
@@ -179,18 +198,14 @@ function App() {
 
   const handleCreateMember = async () => {
     setIsLoading(true);
-
     try {
       const createMemberResponse = await createMember(createMemberState);
       setResponseOutput(JSON.stringify(createMemberResponse, null, 2));
       await loadMembers();
       showToast(
         "success",
-        `Created ${createMemberResponse.firstName ?? "member"} ${
-          createMemberResponse.lastName ?? ""
-        }`.trim(),
+        `Created ${createMemberResponse.firstName ?? "member"} ${createMemberResponse.lastName ?? ""}`.trim(),
       );
-
       if (createMemberResponse.id) {
         setSelectedMemberId(createMemberResponse.id);
         setUpdateMemberState({
@@ -201,17 +216,13 @@ function App() {
           phoneNumber: createMemberResponse.phoneNumber ?? "",
           dateOfBirth: createMemberResponse.dateOfBirth ?? "",
           emergencyContactName: createMemberResponse.emergencyContactName ?? "",
-          emergencyContactPhoneNumber:
-            createMemberResponse.emergencyContactPhoneNumber ?? "",
+          emergencyContactPhoneNumber: createMemberResponse.emergencyContactPhoneNumber ?? "",
           membershipStatus: createMemberResponse.membershipStatus ?? "active",
           joinDate: createMemberResponse.joinDate ?? "",
         });
       }
     } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Create member request failed";
+      const message = error instanceof Error ? error.message : "Create member request failed";
       setResponseOutput(JSON.stringify({ message }, null, 2));
       showToast("error", message);
     } finally {
@@ -248,7 +259,6 @@ function App() {
       showToast("error", message);
       return;
     }
-
     const updatePayload: Partial<MemberInput> = {
       firstName: updateMemberState.firstName,
       lastName: updateMemberState.lastName,
@@ -256,27 +266,18 @@ function App() {
       phoneNumber: updateMemberState.phoneNumber,
       dateOfBirth: updateMemberState.dateOfBirth,
       emergencyContactName: updateMemberState.emergencyContactName,
-      emergencyContactPhoneNumber:
-        updateMemberState.emergencyContactPhoneNumber,
+      emergencyContactPhoneNumber: updateMemberState.emergencyContactPhoneNumber,
       membershipStatus: updateMemberState.membershipStatus,
       joinDate: updateMemberState.joinDate,
     };
-
     setIsLoading(true);
-
     try {
-      const updateMemberResponse = await updateMember(
-        updateMemberState.memberId,
-        updatePayload,
-      );
+      const updateMemberResponse = await updateMember(updateMemberState.memberId, updatePayload);
       setResponseOutput(JSON.stringify(updateMemberResponse, null, 2));
       await loadMembers();
       showToast("success", "Member updated");
     } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Update member request failed";
+      const message = error instanceof Error ? error.message : "Update member request failed";
       setResponseOutput(JSON.stringify({ message }, null, 2));
       showToast("error", message);
     } finally {
@@ -284,33 +285,59 @@ function App() {
     }
   };
 
-  const updateCreateMemberState = (
-    fieldName: keyof MemberInput,
-    fieldValue: string,
-  ) => {
-    setCreateMemberState((currentState) => ({
-      ...currentState,
-      [fieldName]: fieldValue,
-    }));
+  const requestDeleteMember = () => {
+    const currentSelectedMember = members.find(
+      (m) => m.id === updateMemberState.memberId,
+    );
+    if (!currentSelectedMember) return;
+    setMemberPendingDeletion(currentSelectedMember);
+  };
+
+  const cancelDeleteMember = () => {
+    if (isDeleting) return;
+    setMemberPendingDeletion(null);
+  };
+
+  const confirmDeleteMember = async () => {
+    if (!memberPendingDeletion) return;
+    setIsDeleting(true);
+    try {
+      const deleteResponse = await deleteMember(memberPendingDeletion.id);
+      setResponseOutput(JSON.stringify(deleteResponse, null, 2));
+      await loadMembers();
+      if (updateMemberState.memberId === memberPendingDeletion.id) {
+        handleClearUpdateForm();
+      }
+      showToast(
+        "success",
+        `Deleted ${memberPendingDeletion.firstName} ${memberPendingDeletion.lastName}`,
+      );
+      setMemberPendingDeletion(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Delete member request failed";
+      setResponseOutput(JSON.stringify({ message }, null, 2));
+      showToast("error", message);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const updateCreateMemberState = (fieldName: keyof MemberInput, fieldValue: string) => {
+    setCreateMemberState((s) => ({ ...s, [fieldName]: fieldValue }));
   };
 
   const updateEditMemberState = (
     fieldName: keyof typeof initialUpdateMemberState,
     fieldValue: string,
   ) => {
-    setUpdateMemberState((currentState) => ({
-      ...currentState,
-      [fieldName]: fieldValue,
-    }));
+    setUpdateMemberState((s) => ({ ...s, [fieldName]: fieldValue }));
   };
 
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
   const filteredMembers = normalizedSearchQuery
     ? members.filter(
         (member) =>
-          `${member.firstName} ${member.lastName}`
-            .toLowerCase()
-            .includes(normalizedSearchQuery) ||
+          `${member.firstName} ${member.lastName}`.toLowerCase().includes(normalizedSearchQuery) ||
           member.email.toLowerCase().includes(normalizedSearchQuery),
       )
     : members;
@@ -326,25 +353,63 @@ function App() {
         </div>
       ) : null}
 
+      {memberPendingDeletion ? (
+        <div className="modalOverlay" onClick={cancelDeleteMember} role="presentation">
+          <div
+            className="modalContent"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-dialog-title"
+          >
+            <h3 id="delete-dialog-title">Delete member?</h3>
+            <p className="modalText">
+              You are about to permanently delete{" "}
+              <strong>
+                {memberPendingDeletion.firstName} {memberPendingDeletion.lastName}
+              </strong>
+              . This action cannot be undone.
+            </p>
+            <div className="modalActions">
+              <button className="secondary" onClick={cancelDeleteMember} disabled={isDeleting}>
+                Cancel
+              </button>
+              <button className="danger" onClick={confirmDeleteMember} disabled={isDeleting}>
+                {isDeleting ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <div className="container">
         <header className="hero">
           <div className="heroContent">
             <div>
-              <p className="eyebrow">Frontend Demo</p>
-              <h1>Gym Membership API Demo</h1>
+              <p className="eyebrow">Frontend </p>
+              <h1>Gym Membership API</h1>
               <p className="heroText">
-                Firebase login, admin authorization, member creation, and
-                member editing in one clean interface.
+                Firebase login, admin authorization, member creation, editing, and deletion in one
+                clean interface.
               </p>
             </div>
-            <div
-              className={`heroStatus ${idToken ? "heroStatusActive" : ""}`}
-              aria-live="polite"
-            >
-              <span className="statusDot" />
-              {idToken
-                ? `Signed in · ${signedInEmail}`
-                : "Not authenticated"}
+            <div className="heroActions">
+              <div
+                className={`heroStatus ${idToken ? "heroStatusActive" : ""}`}
+                aria-live="polite"
+              >
+                <span className="statusDot" />
+                {idToken ? `Signed in · ${signedInEmail}` : "Not authenticated"}
+              </div>
+              <button
+                type="button"
+                className="themeToggle"
+                onClick={toggleTheme}
+                aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+                title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              >
+                {theme === "dark" ? <SunIcon /> : <MoonIcon />}
+              </button>
             </div>
           </div>
         </header>
@@ -366,6 +431,7 @@ function App() {
                     className="secondary"
                     onClick={handleLogout}
                     disabled={isLoading}
+                    style={{ marginTop: 14, width: "100%" }}
                   >
                     Sign Out
                   </button>
@@ -378,31 +444,23 @@ function App() {
                       <input
                         type="email"
                         value={loginEmail}
-                        onChange={(event) => setLoginEmail(event.target.value)}
+                        onChange={(e) => setLoginEmail(e.target.value)}
                         placeholder="user@gmail.com"
                       />
                     </label>
-
                     <label>
                       Password
                       <input
                         type="password"
                         value={loginPassword}
-                        onChange={(event) =>
-                          setLoginPassword(event.target.value)
-                        }
+                        onChange={(e) => setLoginPassword(e.target.value)}
                         placeholder="Enter password"
                       />
                     </label>
                   </div>
-
-                  <button
-                    onClick={handleLogin}
-                    disabled={isLoading || !loginEmail || !loginPassword}
-                  >
+                  <button onClick={handleLogin} disabled={isLoading || !loginEmail || !loginPassword}>
                     {isLoading ? "Signing in..." : "Log In"}
                   </button>
-
                   <div className="statusBox">
                     <p>
                       <strong>Status:</strong> {authMessage}
@@ -414,13 +472,8 @@ function App() {
 
             <section className="panel">
               <h2>Admin Dashboard</h2>
-              <p className="mutedText">
-                Test admin-only access after login.
-              </p>
-              <button
-                onClick={handleAdminDashboardRequest}
-                disabled={isLoading || !idToken}
-              >
+              <p className="mutedText">Test admin-only access after login.</p>
+              <button onClick={handleAdminDashboardRequest} disabled={isLoading || !idToken}>
                 Call Admin Dashboard
               </button>
             </section>
@@ -440,9 +493,7 @@ function App() {
                   </button>
                 ) : null}
               </div>
-              <pre>
-                {responseOutput || "No response yet. Trigger an API call above."}
-              </pre>
+              <pre>{responseOutput || "No response yet. Trigger an API call above."}</pre>
             </section>
           </aside>
 
@@ -451,19 +502,11 @@ function App() {
               <div className="sectionHeader">
                 <div>
                   <h2>
-                    Members{" "}
-                    <span className="countBadge">{members.length}</span>
+                    Members <span className="countBadge">{members.length}</span>
                   </h2>
-                  <p className="mutedText">
-                    Click a member to load their data into the update form.
-                  </p>
+                  <p className="mutedText">Click a member to load their data into the edit form.</p>
                 </div>
-
-                <button
-                  className="secondary"
-                  onClick={() => void loadMembers()}
-                  disabled={isLoading}
-                >
+                <button className="secondary" onClick={() => void loadMembers()} disabled={isLoading}>
                   {isLoading ? "Loading..." : "Refresh"}
                 </button>
               </div>
@@ -472,7 +515,7 @@ function App() {
                 <input
                   type="search"
                   value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search by name or email..."
                 />
               </div>
@@ -496,19 +539,15 @@ function App() {
                     >
                       {getInitials(member.firstName, member.lastName)}
                     </div>
-
                     <div className="memberInfo">
                       <div className="memberCardTop">
                         <strong>
                           {member.firstName} {member.lastName}
                         </strong>
-                        <span
-                          className={`memberBadge memberBadge-${member.membershipStatus}`}
-                        >
+                        <span className={`memberBadge memberBadge-${member.membershipStatus}`}>
                           {member.membershipStatus}
                         </span>
                       </div>
-
                       <span className="memberEmail">{member.email}</span>
                       <small className="memberId" title={member.id}>
                         ID: {member.id}
@@ -523,7 +562,7 @@ function App() {
                       <strong>No members yet.</strong>
                     </p>
                     <p className="mutedText">
-                      Create your first one using the form below.
+                      Run <code>node scripts/seed.js</code> to populate demo data.
                     </p>
                   </div>
                 ) : null}
@@ -548,36 +587,24 @@ function App() {
                     First Name
                     <input
                       value={createMemberState.firstName}
-                      onChange={(event) =>
-                        updateCreateMemberState(
-                          "firstName",
-                          event.target.value,
-                        )
-                      }
+                      onChange={(e) => updateCreateMemberState("firstName", e.target.value)}
                     />
                   </label>
-
                   <label>
                     Last Name
                     <input
                       value={createMemberState.lastName}
-                      onChange={(event) =>
-                        updateCreateMemberState("lastName", event.target.value)
-                      }
+                      onChange={(e) => updateCreateMemberState("lastName", e.target.value)}
                     />
                   </label>
-
                   <label>
                     Date of Birth
                     <input
                       type="date"
                       max={new Date().toISOString().split("T")[0]}
                       value={toDateInputValue(createMemberState.dateOfBirth)}
-                      onChange={(event) =>
-                        updateCreateMemberState(
-                          "dateOfBirth",
-                          fromDateInputValue(event.target.value),
-                        )
+                      onChange={(e) =>
+                        updateCreateMemberState("dateOfBirth", fromDateInputValue(e.target.value))
                       }
                     />
                   </label>
@@ -590,23 +617,15 @@ function App() {
                     <input
                       type="email"
                       value={createMemberState.email}
-                      onChange={(event) =>
-                        updateCreateMemberState("email", event.target.value)
-                      }
+                      onChange={(e) => updateCreateMemberState("email", e.target.value)}
                     />
                   </label>
-
                   <label>
                     Phone Number
                     <input
                       type="tel"
                       value={createMemberState.phoneNumber}
-                      onChange={(event) =>
-                        updateCreateMemberState(
-                          "phoneNumber",
-                          event.target.value,
-                        )
-                      }
+                      onChange={(e) => updateCreateMemberState("phoneNumber", e.target.value)}
                     />
                   </label>
                 </div>
@@ -617,25 +636,18 @@ function App() {
                     Name
                     <input
                       value={createMemberState.emergencyContactName}
-                      onChange={(event) =>
-                        updateCreateMemberState(
-                          "emergencyContactName",
-                          event.target.value,
-                        )
+                      onChange={(e) =>
+                        updateCreateMemberState("emergencyContactName", e.target.value)
                       }
                     />
                   </label>
-
                   <label>
                     Phone Number
                     <input
                       type="tel"
                       value={createMemberState.emergencyContactPhoneNumber}
-                      onChange={(event) =>
-                        updateCreateMemberState(
-                          "emergencyContactPhoneNumber",
-                          event.target.value,
-                        )
+                      onChange={(e) =>
+                        updateCreateMemberState("emergencyContactPhoneNumber", e.target.value)
                       }
                     />
                   </label>
@@ -647,11 +659,10 @@ function App() {
                     Status
                     <select
                       value={createMemberState.membershipStatus}
-                      onChange={(event) =>
+                      onChange={(e) =>
                         updateCreateMemberState(
                           "membershipStatus",
-                          event.target
-                            .value as MemberInput["membershipStatus"],
+                          e.target.value as MemberInput["membershipStatus"],
                         )
                       }
                     >
@@ -660,17 +671,13 @@ function App() {
                       <option value="suspended">Suspended</option>
                     </select>
                   </label>
-
                   <label>
                     Join Date
                     <input
                       type="date"
                       value={toDateInputValue(createMemberState.joinDate)}
-                      onChange={(event) =>
-                        updateCreateMemberState(
-                          "joinDate",
-                          fromDateInputValue(event.target.value),
-                        )
+                      onChange={(e) =>
+                        updateCreateMemberState("joinDate", fromDateInputValue(e.target.value))
                       }
                     />
                   </label>
@@ -683,26 +690,16 @@ function App() {
 
               <section className="panel">
                 <div className="sectionHeader">
-                  <h2>
-                    {updateMemberState.memberId
-                      ? "Edit Member"
-                      : "Update Member"}
-                  </h2>
+                  <h2>{updateMemberState.memberId ? "Edit Member" : "Update Member"}</h2>
                   {updateMemberState.memberId ? (
-                    <button
-                      className="ghost"
-                      onClick={handleClearUpdateForm}
-                      disabled={isLoading}
-                    >
+                    <button className="ghost" onClick={handleClearUpdateForm} disabled={isLoading}>
                       Clear
                     </button>
                   ) : null}
                 </div>
 
                 {!updateMemberState.memberId ? (
-                  <p className="mutedText">
-                    Select a member from the list above to edit.
-                  </p>
+                  <p className="mutedText">Select a member from the list above to edit.</p>
                 ) : null}
 
                 <p className="fieldGroupLabel">Member ID</p>
@@ -710,9 +707,7 @@ function App() {
                   <label>
                     <input
                       value={updateMemberState.memberId}
-                      onChange={(event) =>
-                        updateEditMemberState("memberId", event.target.value)
-                      }
+                      onChange={(e) => updateEditMemberState("memberId", e.target.value)}
                       placeholder="Select member from the list"
                       readOnly
                     />
@@ -725,33 +720,24 @@ function App() {
                     First Name
                     <input
                       value={updateMemberState.firstName}
-                      onChange={(event) =>
-                        updateEditMemberState("firstName", event.target.value)
-                      }
+                      onChange={(e) => updateEditMemberState("firstName", e.target.value)}
                     />
                   </label>
-
                   <label>
                     Last Name
                     <input
                       value={updateMemberState.lastName}
-                      onChange={(event) =>
-                        updateEditMemberState("lastName", event.target.value)
-                      }
+                      onChange={(e) => updateEditMemberState("lastName", e.target.value)}
                     />
                   </label>
-
                   <label>
                     Date of Birth
                     <input
                       type="date"
                       max={new Date().toISOString().split("T")[0]}
                       value={toDateInputValue(updateMemberState.dateOfBirth)}
-                      onChange={(event) =>
-                        updateEditMemberState(
-                          "dateOfBirth",
-                          fromDateInputValue(event.target.value),
-                        )
+                      onChange={(e) =>
+                        updateEditMemberState("dateOfBirth", fromDateInputValue(e.target.value))
                       }
                     />
                   </label>
@@ -764,23 +750,15 @@ function App() {
                     <input
                       type="email"
                       value={updateMemberState.email}
-                      onChange={(event) =>
-                        updateEditMemberState("email", event.target.value)
-                      }
+                      onChange={(e) => updateEditMemberState("email", e.target.value)}
                     />
                   </label>
-
                   <label>
                     Phone Number
                     <input
                       type="tel"
                       value={updateMemberState.phoneNumber}
-                      onChange={(event) =>
-                        updateEditMemberState(
-                          "phoneNumber",
-                          event.target.value,
-                        )
-                      }
+                      onChange={(e) => updateEditMemberState("phoneNumber", e.target.value)}
                     />
                   </label>
                 </div>
@@ -791,25 +769,18 @@ function App() {
                     Name
                     <input
                       value={updateMemberState.emergencyContactName}
-                      onChange={(event) =>
-                        updateEditMemberState(
-                          "emergencyContactName",
-                          event.target.value,
-                        )
+                      onChange={(e) =>
+                        updateEditMemberState("emergencyContactName", e.target.value)
                       }
                     />
                   </label>
-
                   <label>
                     Phone Number
                     <input
                       type="tel"
                       value={updateMemberState.emergencyContactPhoneNumber}
-                      onChange={(event) =>
-                        updateEditMemberState(
-                          "emergencyContactPhoneNumber",
-                          event.target.value,
-                        )
+                      onChange={(e) =>
+                        updateEditMemberState("emergencyContactPhoneNumber", e.target.value)
                       }
                     />
                   </label>
@@ -821,40 +792,43 @@ function App() {
                     Status
                     <select
                       value={updateMemberState.membershipStatus}
-                      onChange={(event) =>
-                        updateEditMemberState(
-                          "membershipStatus",
-                          event.target.value,
-                        )
-                      }
+                      onChange={(e) => updateEditMemberState("membershipStatus", e.target.value)}
                     >
                       <option value="active">Active</option>
                       <option value="inactive">Inactive</option>
                       <option value="suspended">Suspended</option>
                     </select>
                   </label>
-
                   <label>
                     Join Date
                     <input
                       type="date"
                       value={toDateInputValue(updateMemberState.joinDate)}
-                      onChange={(event) =>
-                        updateEditMemberState(
-                          "joinDate",
-                          fromDateInputValue(event.target.value),
-                        )
+                      onChange={(e) =>
+                        updateEditMemberState("joinDate", fromDateInputValue(e.target.value))
                       }
                     />
                   </label>
                 </div>
 
-                <button
-                  onClick={handleUpdateMember}
-                  disabled={isLoading || !updateMemberState.memberId}
-                >
-                  {isLoading ? "Saving..." : "Update Member"}
-                </button>
+                <div className="actionGroup">
+                  <button
+                    onClick={handleUpdateMember}
+                    disabled={isLoading || !updateMemberState.memberId}
+                  >
+                    {isLoading ? "Saving..." : "Update Member"}
+                  </button>
+                  <button
+                    type="button"
+                    className="danger"
+                    onClick={requestDeleteMember}
+                    disabled={isLoading || !updateMemberState.memberId}
+                    aria-label="Delete member"
+                  >
+                    <TrashIcon />
+                    <span>Delete</span>
+                  </button>
+                </div>
               </section>
             </div>
           </main>
