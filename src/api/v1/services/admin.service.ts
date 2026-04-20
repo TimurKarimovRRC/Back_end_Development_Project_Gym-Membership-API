@@ -4,6 +4,8 @@ import { adminRepository } from "../repositories/admin.repository";
 import { emailService } from "./email.service";
 import {
   type AdminDashboardStats,
+  type ExpiringSubscriptionSummary,
+  type ExpiringSubscriptionsResponse,
   type InactiveMemberSummary,
   type InactiveMembersResponse,
 } from "../types/admin.types";
@@ -45,8 +47,48 @@ const sendInactiveMemberReminder = async (
   return inactiveMember;
 };
 
+const getExpiringSubscriptions =
+  async (): Promise<ExpiringSubscriptionsResponse> => {
+    return adminRepository.getExpiringSubscriptions();
+  };
+
+const sendExpiringSubscriptionReminder = async (
+  subscriptionId: string,
+): Promise<ExpiringSubscriptionSummary> => {
+  const expiringSubscriptionsResponse =
+    await adminRepository.getExpiringSubscriptions();
+
+  const expiringSubscription = expiringSubscriptionsResponse.subscriptions.find(
+    (subscription) => subscription.subscriptionId === subscriptionId,
+  );
+
+  if (!expiringSubscription) {
+    throw new AppError(
+      "Expiring subscription not found",
+      HTTP_STATUS.NOT_FOUND,
+    );
+  }
+
+  if (!emailService.isEmailConfigurationAvailable()) {
+    throw new AppError(
+      "Email configuration is not available",
+      HTTP_STATUS.BAD_REQUEST,
+    );
+  }
+
+  await emailService.sendSubscriptionReminderEmail(
+    expiringSubscription.email,
+    expiringSubscription.firstName,
+    expiringSubscription.endDate,
+  );
+
+  return expiringSubscription;
+};
+
 export const adminService = {
   getAdminDashboardStats,
   getInactiveMembers,
   sendInactiveMemberReminder,
+  getExpiringSubscriptions,
+  sendExpiringSubscriptionReminder,
 };
